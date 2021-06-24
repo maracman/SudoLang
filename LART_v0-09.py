@@ -13,7 +13,9 @@ clock = pygame.time.Clock()
 import re
 import os
 import platform
-from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, QApplication, QWidget, QPushButton, QLineEdit, QMessageBox, QHBoxLayout, QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox
+from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
+    QApplication, QWidget, QPushButton, QLineEdit, QMessageBox, QHBoxLayout, \
+    QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import pyqtSlot, Qt
 
@@ -495,11 +497,27 @@ if __name__ == '__main__':
 #export settings for data survey file
 if export_settings:
     with open(os.path.join(dir_path, 'data/survey_settings.pkl'), 'wb') as f:
-        pickle.dump([two_syl_weight, one_syl_weight, two_syl_weight, two_syl_long_weight, three_syl_weight, four_syl_weight, mon_ani_ratio, load_previous, rareness, energy_mean, energy, impact_max, impact_min, Energy_isContinuous, thresh1], f)
+        pickle.dump([two_syl_weight,
+                     one_syl_weight,
+                     two_syl_weight,
+                     two_syl_long_weight,
+                     three_syl_weight,
+                     four_syl_weight,
+                     mon_ani_ratio,
+                     load_previous,
+                     rareness,
+                     energy_mean,
+                     energy,
+                     impact_max,
+                     impact_min,
+                     Energy_isContinuous,
+                     thresh1], f)
 
 if isSurvey:
     with open(os.path.join(dir_path, 'data/survey_settings.pkl'), 'rb') as f:
-        two_syl_weight, one_syl_weight, two_syl_weight, two_syl_long_weight, three_syl_weight, four_syl_weight, mon_ani_ratio, load_previous, rareness, energy_mean, energy, impact_max, impact_min, Energy_isContinuous, thresh1 = pickle.load(f)
+        two_syl_weight, one_syl_weight, two_syl_weight, two_syl_long_weight, three_syl_weight, \
+        four_syl_weight, mon_ani_ratio, load_previous, rareness, energy_mean, energy, impact_max, \
+        impact_min, Energy_isContinuous, thresh1 = pickle.load(f)
 
 
 
@@ -614,7 +632,18 @@ else:
         animalNames6[i] = animalNames6[i], 6
 
     # 1.weights words according to globals, 2. sifts list with simple words at front (with normal error)
-    combined_word_list = weighted_sample(animalNames1, animalNames2, animalNames3, animalNames4, animalNames5, animalNames6, two_letter_weight, one_syl_weight, two_syl_weight, two_syl_long_weight, three_syl_weight, four_syl_weight, max_animals)
+    combined_word_list = weighted_sample(animalNames1,
+                                         animalNames2,
+                                         animalNames3,
+                                         animalNames4,
+                                         animalNames5,
+                                         animalNames6,
+                                         two_letter_weight,
+                                         one_syl_weight,
+                                         two_syl_weight,
+                                         two_syl_long_weight,
+                                         three_syl_weight,
+                                         four_syl_weight, max_animals)
     if rareness:
         wordlist_complexity_weights = sort_with_error(combined_word_list, 2)
     else:
@@ -700,7 +729,14 @@ targetY = 520
 
 # csv array and elements
 csv_output = []
-csv_new_line = ["click_time", "animal_type", "score_for_type", "word_complexity", "isRepeat", "isTarget_img", "x_position", "player_energy"]  # column labels for .csv header
+csv_new_line = ["click_time",
+                "animal_type",
+                "score_for_type",
+                "word_complexity",
+                "isRepeat",
+                "isTarget_img",
+                "x_position",
+                "player_energy"]  # column labels for .csv header
 csv_output.append(csv_new_line)
 
 def game_over_text():
@@ -854,7 +890,13 @@ while running:
                             print(time.time() - start_time[i])
 
                             # output to CSV
-                            csv_new_line = [round(time.time() - start_time[i], 4), str(animalDict["label"][target_type]), animalDict['type_score'][target_type], animalDict["label_complexity"][target_type], isRepeat, isTarget_img, (WINDOW_SIZE[0]/2 - animalX[i]), round(energy, 1)]
+                            csv_new_line = [round(time.time() - start_time[i], 4),
+                                            str(animalDict["label"][target_type]),
+                                            animalDict['type_score'][target_type],
+                                            animalDict["label_complexity"][target_type],
+                                            isRepeat, isTarget_img,
+                                            (WINDOW_SIZE[0]/2 - animalX[i]),
+                                            round(energy, 1)]
                             csv_output.append(csv_new_line)
 
                         score_value +=1
