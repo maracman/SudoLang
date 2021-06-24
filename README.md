@@ -2,7 +2,7 @@
  Tool for developing goal-oriented experimental paradigms for cognitive and neurocognitive research into language-learning, attention, memory and semantic processes.
 
 Files for program:
-1. Main .py file is 'LART' + version_number
+1. The main .py file for researchers is named 'LART' + version_number
 2. Data for analysis saved to data/outputs in the format: username + '_' + time_stamp + '_click_times'
 3. Included is .py file 'LART_Survey' + version_number for providing to participants in an experiment, this file will load settings exported to surrvey_settings.pkl
 4. files to recall settings are located data/saved_game_states there is one seetingsfile per username. saving settings with an existing username will overwrite the previous file.
