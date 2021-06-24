@@ -1,4 +1,4 @@
-# Language-aquisition-research-tool
+# Language-Aquisition-Research-Tool_(LART)
  Tool for developing goal-oriented experimental paradigms for cognitive and neurocognitive research into language-learning, attention, memory and semantic processes.
 
 Files for program:
