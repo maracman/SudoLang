@@ -13,7 +13,7 @@ Instructions:
 The initial settings prompt contains hove over explinations for various settings, contact the developer if you need more clarification.
 
 Outputs:
-(Data points for each object clicked saved to 'clicktimes' file presented chronilogically)
+(Data points for each object clicked saved to 'clicktimes' file presented chronologically)
 
 click_time - Time between the presentation of the target object and the user's selection click
 animal_type -  The label of the target object 
