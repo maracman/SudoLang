@@ -12,17 +12,18 @@ Files:
 Instructions:
 The initial settings prompt contains hove over explinations for various settings, contact the developer if you need more clarification.
 
-Outputs
-(Data points for each object clicked saved to 'clicktimes' file presented chronologically):
+Outputs:
 
-click_time - Time between the presentation of the target object and the user's selection click
-animal_type -  The label of the target object 
-score_for_type - The sum of correctly answered
-word_complexity - score (from 1 to 6) given to the target label 
-isRepeat - a boolian value, was the same target used in the previous round
-isTarget_img - A booleam value, was the target displayed as an image in adition to the label
-x_position - the x coordinate for where the clicked object was on the screen
-player_energy - the user's energy (out of 100) at the time the object was clicked
+Data points for each object clicked saved to clicktimes (.csv) file
+
+click_time - Time between the presentation of the target object and the user's selection click.
+animal_type -  The label of the target object. 
+score_for_type - The concurrent sum of correctly answered targets of the same type.
+word_complexity - score (from 1 to 6) given to the target label. 
+isRepeat - a boolian value, was the same target used in the previous round.
+isTarget_img - A booleam value, was the target displayed as an image in adition to the label.
+x_position - the x coordinate for where the clicked object was on the screen.
+player_energy - the user's energy (out of 100) at the time the object was clicked.
 
 
 
