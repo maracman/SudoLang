@@ -14,7 +14,7 @@ The initial settings prompt contains hove over explinations for various settings
 
 Outputs:
 
-Data points for each object clicked saved to clicktimes (.csv) file
+Data points for each object clicked - saved to clicktimes (.csv) file
 
 click_time - Time between the presentation of the target object and the user's selection click.
 animal_type -  The label of the target object. 
