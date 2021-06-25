@@ -1,0 +1,10 @@
+ID_numeric,filepath,loadImg,type_score,label,label_complexity,is_monster
+3,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/kiwi.png,<Surface(64x64x32 SW)>,0,dracoo,4,0
+9,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/snake.png,<Surface(64x64x32 SW)>,0,biple,3,1
+2,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/giraffe.png,<Surface(64x64x32 SW)>,0,plun,2,0
+26,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/blobber.png,<Surface(64x64x32 SW)>,0,chiffa,3,1
+4,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/monkey.png,<Surface(64x64x32 SW)>,0,waldrim,4,0
+10,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/gobbler.png,<Surface(64x64x32 SW)>,0,pid,2,1
+6,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/owl.png,<Surface(64x64x32 SW)>,0,plugertnet,5,0
+12,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/antennae.png,<Surface(64x64x32 SW)>,0,bint,2,1
+1,/Users/Marcus/Desktop/Projects/Language aquisition research tool (LART)/data/animals/cat.png,<Surface(64x64x32 SW)>,0,clug,2,0

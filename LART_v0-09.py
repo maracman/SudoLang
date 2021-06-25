@@ -739,6 +739,14 @@ csv_new_line = ["click_time",
                 "player_energy"]  # column labels for .csv header
 csv_output.append(csv_new_line)
 
+# mouse coordinate data
+mouse_tracking = []
+mouse_tracking_header = ["x_pos", "y_pos", "time_stamp"]
+mouse_tracking.append(mouse_tracking_header)
+mouse_tracking_file_number = 0
+
+epoch_start = time.time()
+
 def game_over_text():
     over_text = game_over_font.render("GAME OVER ", True, (255, 255, 255))
     game_window.blit(over_text, (200, 250))
@@ -786,6 +794,24 @@ def write_csv(csv_array):
     with open('data/outputs/' + output_file_name,'w') as file:
         writer = csv.writer(file, delimiter=',')
         writer.writerows(csv_array)
+
+def write_mouse_epoch(correct, username, epoch_number):
+    filename_number = str(epoch_number)
+    if correct:
+        letter_append = '_C'
+        output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
+        with open('data/outputs/mouse_coords/correct/' + output_file_name, 'w') as file:
+            writer = csv.writer(file, delimiter=',')
+            writer.writerows(mouse_tracking)
+    else:
+        letter_append = '_I'
+        output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
+        with open('data/outputs/mouse_coords/incorrect/' + output_file_name, 'w') as file:
+            writer = csv.writer(file, delimiter=',')
+            writer.writerows(mouse_tracking)
+
+
+
 
 def write_animalDict(animal_dict):
     print(animal_dict)
@@ -881,6 +907,9 @@ while running:
                 if clicked:
                     # if correct animal increase score, print to CSV and change target type and respawn animal
                     if animal_type[i] == target_type:
+                        isCorrect = True
+                        write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number)
+                        mouse_tracking_file_number = mouse_tracking_file_number +1
 
                         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, impact_max, impact_min)
 
@@ -941,6 +970,9 @@ while running:
                                 animal_variety += 1
 
                     else:
+                        isCorrect = False
+                        write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number)
+                        mouse_tracking_file_number = mouse_tracking_file_number + 1
                         lives -= 1
                         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -impact_max, -impact_min) # change energy level
 
@@ -993,4 +1025,7 @@ while running:
 
     # required for screen updating, screen movement etc
     pygame.display.update()
-    clock.tick(60)
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    mouse_data_newline = [mouse_x, mouse_y, (time.time() - epoch_start)]
+    mouse_tracking.append(mouse_data_newline)
+    clock.tick(50)
