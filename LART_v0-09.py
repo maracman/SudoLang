@@ -6,9 +6,6 @@ import csv
 import pickle
 import sys
 import pandas as pd
-import tkinter as tk
-from tkinter import *
-from tkinter import ttk
 clock = pygame.time.Clock()
 import re
 import os
@@ -270,7 +267,8 @@ class App(QWidget):
         vbox4.addWidget(self.load_creature_bank)
 
         #functions for slider value changes
-        self.two_letter_slider.valueChanged.connect(lambda: two_letter_value_label.setText(str(self.two_letter_slider.value())))
+        self.two_letter_slider.valueChanged.connect(
+            lambda: two_letter_value_label.setText(str(self.two_letter_slider.value())))
         self.one_syl_slider.valueChanged.connect(
             lambda: one_syl_value_label.setText(str(self.one_syl_slider.value())))
         self.two_syl_slider.valueChanged.connect(
@@ -398,11 +396,16 @@ class App(QWidget):
                                               'this value the target image will not accompany \n'
                                         'the target label for that creature.')
 
-        self.starting_energy_slider.valueChanged.connect(lambda: starting_energy_value_label.setText(str(self.starting_energy_slider.value())))
-        self.stick_point_slider.valueChanged.connect(lambda: stick_point_value_label.setText(str(self.stick_point_slider.value())))
-        self.min_impact_slider.valueChanged.connect(lambda: min_impact_value_label.setText(str(self.min_impact_slider.value())))
-        self.max_impact_slider.valueChanged.connect(lambda: max_impact_value_label.setText(str(self.max_impact_slider.value())))
-        self.tally_theshold_slider.valueChanged.connect(lambda: tally_theshold_value_label.setText(str(self.tally_theshold_slider.value())))
+        self.starting_energy_slider.valueChanged.connect(
+            lambda: starting_energy_value_label.setText(str(self.starting_energy_slider.value())))
+        self.stick_point_slider.valueChanged.connect(
+            lambda: stick_point_value_label.setText(str(self.stick_point_slider.value())))
+        self.min_impact_slider.valueChanged.connect(
+            lambda: min_impact_value_label.setText(str(self.min_impact_slider.value())))
+        self.max_impact_slider.valueChanged.connect(
+            lambda: max_impact_value_label.setText(str(self.max_impact_slider.value())))
+        self.tally_theshold_slider.valueChanged.connect(
+            lambda: tally_theshold_value_label.setText(str(self.tally_theshold_slider.value())))
 
 
         vbox1.addWidget(starting_energy_label)
@@ -540,7 +543,8 @@ background = pygame.image.load(os.path.join(dir_path, "data/grass.png"))
 backgroundY = 0
 
 # animal parameters
-animalDict = {'ID_numeric':[],'filepath':[], 'loadImg':[],'type_score':[], 'label':[], 'label_complexity':[], 'is_monster':[]}
+animalDict = {'ID_numeric':[],'filepath':[], 'loadImg':[],'type_score':[],
+              'label':[], 'label_complexity':[], 'is_monster':[]}
 max_animals = 10 #total array size
 animals_on_screen = 5
 animal_type = []
@@ -562,8 +566,10 @@ isRepeat = 0
 isTarget_img = 1
 
 # animal labels
-def weighted_sample(list1, list2, list3, list4, list5, list6, weight1, weight2, weight3, weight4, weight5, weight6, length):
-    weightslist = random.choices([1,2,3,4,5,6], weights=(weight1, weight2, weight3, weight4, weight5, weight6), k=length)
+def weighted_sample(list1, list2, list3, list4, list5, list6,
+                    weight1, weight2, weight3, weight4, weight5, weight6, length):
+    weightslist = random.choices([1,2,3,4,5,6],
+                                 weights=(weight1, weight2, weight3, weight4, weight5, weight6), k=length)
     newlist1 = random.sample(list1, weightslist.count(1))
     newlist2 = random.sample(list2, weightslist.count(2))
     newlist3 = random.sample(list3, weightslist.count(3))
@@ -596,7 +602,8 @@ def sort_with_error(list_to_sort, error):
 
 if load_previous:
     try:
-        prev_data = pd.read_csv(os.path.join(dir_path, "data/saved_game_states/", str(id_name) + '_' + 'animal_word_data.csv'))
+        prev_data = pd.read_csv(os.path.join(
+            dir_path, "data/saved_game_states/", str(id_name) + '_' + 'animal_word_data.csv'))
         for i in range(len(list(prev_data))):
             animalDict["filepath"].append(prev_data["filepath"][i])
             animalDict['ID_numeric'].append(prev_data["ID_numeric"][i])
@@ -809,9 +816,12 @@ def calculate_energy(energy_level, mean, continuous, max_impact, min_impact):
         energy_level = energy_level + max_impact
     else:
         if max_impact <= 0 and energy_level >= mean:
-            energy_level = energy_level + min_impact + ((max_impact - min_impact) * ((math.sin(((energy_level - mean) * math.pi)/(100 - mean)) / 2) + 1))
+            energy_level = energy_level + min_impact + ((max_impact - min_impact)
+                                                        * ((math.sin(((energy_level - mean)
+                                                                      * math.pi)/(100 - mean)) / 2) + 1))
         if max_impact > 0 and energy_level < mean:
-            energy_level = energy_level + min_impact + ((max_impact - min_impact) * ((math.sin((energy_level * math.pi) / mean) / 2) + 1))
+            energy_level = energy_level + min_impact + ((max_impact - min_impact)
+                                                        * ((math.sin((energy_level * math.pi) / mean) / 2) + 1))
         else:
             energy_level = energy_level + (abs(min_impact) * (max_impact / abs(max_impact)))
 
@@ -836,8 +846,10 @@ def draw_energy(energy_level):
     else:
         colour = "purple"
 
-    pygame.draw.rect(game_window, [255,255,255], pygame.Rect(30, WINDOW_SIZE[1] - 230, 60, 210), 4, 10 )
-    pygame.draw.rect(game_window, colour, pygame.Rect(35, WINDOW_SIZE[1] - 25 - energy_level*2, 50, energy_level*2), 0, 6)
+    pygame.draw.rect(game_window, [255,255,255], pygame.Rect(
+        30, WINDOW_SIZE[1] - 230, 60, 210), 4, 10 )
+    pygame.draw.rect(game_window, colour, pygame.Rect(
+        35, WINDOW_SIZE[1] - 25 - energy_level*2, 50, energy_level*2), 0, 6)
 
 # x, y positions that dont overlap
 def get_new_randXY(range_i):
@@ -846,7 +858,8 @@ def get_new_randXY(range_i):
     # check for overlap
     i_int = 0
     while i_int < range_i:
-        distance = math.sqrt((math.pow((animalX[i_int]+32) - (x+32), 2)) + (math.pow((animalY[i_int]+32) - (y+32), 2)))
+        distance = math.sqrt(
+            (math.pow((animalX[i_int]+32) - (x+32), 2)) + (math.pow((animalY[i_int]+32) - (y+32), 2)))
         if distance < 50:
             x = random.randint(32, 768)
             y = random.randint(-100, 10)
@@ -940,9 +953,9 @@ while running:
                             if animal_variety < (inputData["animal_ID"].count() - 1):
                                 animal_variety += 1
 
-                    else:
+                    else:# change energy level
                         lives -= 1
-                        energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -impact_max, -impact_min) # change energy level
+                        energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -impact_max, -impact_min)
 
     # Background
     backgroundY = backgroundY + animalY_change
