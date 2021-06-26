@@ -795,20 +795,21 @@ def write_csv(csv_array):
         writer = csv.writer(file, delimiter=',')
         writer.writerows(csv_array)
 
-def write_mouse_epoch(correct, username, epoch_number):
+def write_mouse_epoch(correct, username, epoch_number, track_arr):
     filename_number = str(epoch_number)
+
     if correct:
         letter_append = '_C'
         output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
         with open('data/outputs/mouse_coords/correct/' + output_file_name, 'w') as file:
             writer = csv.writer(file, delimiter=',')
-            writer.writerows(mouse_tracking)
+            writer.writerows(track_arr)
     else:
         letter_append = '_I'
         output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
         with open('data/outputs/mouse_coords/incorrect/' + output_file_name, 'w') as file:
             writer = csv.writer(file, delimiter=',')
-            writer.writerows(mouse_tracking)
+            writer.writerows(track_arr)
 
 
 
@@ -975,7 +976,7 @@ while running:
                         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -impact_max, -impact_min) # change energy level
                         isCorrect = False
 
-                    write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number)
+                    write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
                     mouse_tracking_file_number = mouse_tracking_file_number + 1
                     mouse_tracking.clear()
 
