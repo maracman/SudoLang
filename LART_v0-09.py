@@ -813,6 +813,8 @@ def write_mouse_epoch(correct, username, epoch_number):
 
 
 
+
+
 def write_animalDict(animal_dict):
     print(animal_dict)
     csv_file = str(id_name) + '_' + "animal_word_data.csv"
@@ -908,8 +910,6 @@ while running:
                     # if correct animal increase score, print to CSV and change target type and respawn animal
                     if animal_type[i] == target_type:
                         isCorrect = True
-                        write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number)
-                        mouse_tracking_file_number = mouse_tracking_file_number +1
 
                         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, impact_max, impact_min)
 
@@ -970,11 +970,15 @@ while running:
                                 animal_variety += 1
 
                     else:
-                        isCorrect = False
-                        write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number)
-                        mouse_tracking_file_number = mouse_tracking_file_number + 1
+
                         lives -= 1
                         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -impact_max, -impact_min) # change energy level
+                        isCorrect = False
+
+                    write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number)
+                    mouse_tracking_file_number = mouse_tracking_file_number + 1
+                    mouse_tracking.clear()
+
 
     # Background
     backgroundY = backgroundY + animalY_change
