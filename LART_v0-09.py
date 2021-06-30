@@ -1,4 +1,5 @@
 import pygame
+from pygame import mixer
 import random
 import math
 import time
@@ -6,7 +7,7 @@ import csv
 import pickle
 import sys
 import pandas as pd
-clock = pygame.time.Clock()
+import sched, time
 import re
 import os
 import platform
@@ -15,6 +16,9 @@ from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
     QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import pyqtSlot, Qt
+
+s = sched.scheduler(time.time, time.sleep)
+clock = pygame.time.Clock()
 
 
 # default settings
@@ -720,7 +724,7 @@ livesY = 40
 
 energy_counter = 0
 energy_counter_interval = 120 # number of frames until energy drops a little
-score_linear = False
+score_linear = True
 
 
 textX = 10
@@ -745,6 +749,18 @@ csv_new_line = ["click_time",
                 "x_position",
                 "player_energy"]  # column labels for .csv header
 csv_output.append(csv_new_line)
+
+#fps
+fps = 60
+
+#sound mixer
+mixer.init()
+mixer.music.set_volume(0.7)
+audio_library = 'data/animals/audio/'
+silence = pygame.mixer.Sound(audio_library + 'silence.wav')
+wait = 0.5
+delay = wait * fps
+scheduler = True
 
 def game_over_text():
     over_text = game_over_font.render("GAME OVER ", True, (255, 255, 255))
@@ -875,6 +891,14 @@ for i in range(max_animals):
 
 
 
+
+def playsounds(audio):
+    audio = pygame.mixer.Sound(audio_library + audio)
+    audio.play()
+    scheduler = False
+    return scheduler, wait * fps
+
+
 # Game loop
 running = True
 while running:
@@ -921,6 +945,11 @@ while running:
                             isRepeat = 1
                         else:
                             isRepeat = 0
+
+                        #play audio for name
+                        scheduler = True
+
+
 
 
                         #make sure new target is already/soon displayed as falling animal
@@ -1004,6 +1033,13 @@ while running:
         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -3, -1)
         energy_counter = 0
 
+    #play audio of name
+    sound_file = str(animalDict["label"][target_type] + '.wav')
+    if scheduler:
+        delay = delay - 1
+        if delay <= 0:
+            scheduler, delay = playsounds(sound_file)
+
     # required for screen updating, screen movement etc
     pygame.display.update()
-    clock.tick(60)
+    clock.tick(fps)
