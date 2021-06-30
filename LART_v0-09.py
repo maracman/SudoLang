@@ -756,7 +756,7 @@ fps = 60
 #sound mixer
 mixer.init()
 mixer.music.set_volume(0.7)
-audio_library = 'data/animals/audio/'
+audio_library = 'data/audio/'
 silence = pygame.mixer.Sound(audio_library + 'silence.wav')
 wait = 0.5
 delay = wait * fps
@@ -1033,7 +1033,7 @@ while running:
         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -3, -1)
         energy_counter = 0
 
-    #play audio of name
+    #play audio of name after delay
     sound_file = str(animalDict["label"][target_type] + '.wav')
     if scheduler:
         delay = delay - 1
