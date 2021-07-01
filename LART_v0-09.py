@@ -70,6 +70,8 @@ class App(QWidget):
         tabs = QTabWidget()
         tabs.addTab(self.tab1_UI(), "Labels")
         tabs.addTab(self.tab2_UI(), "Scoring")
+        tabs.addTab(self.tab3_UI(), "Export")
+
         layout.addWidget(tabs)
         hlayout = QHBoxLayout()
 
@@ -438,6 +440,29 @@ class App(QWidget):
         tab2.setLayout(outer_layout)
         return tab2
 
+    def tab3_UI(self):
+        tab3 = QWidget()
+        outer_layout = QVBoxLayout()
+        hbox1 = QHBoxLayout()
+        vbox1 = QVBoxLayout()
+        vbox2 = QVBoxLayout()
+        vbox3 = QVBoxLayout()
+
+        isMousetrack = False
+        self.mouse_export = QCheckBox("   Export mouse tracking", self)
+        self.mouse_export.toggle()
+        self.mouse_export.setChecked(isMousetrack)
+
+        hbox1.addWidget(self.mouse_export)
+
+        outer_layout.addLayout(hbox1)
+        hbox1.addLayout(vbox1)
+        hbox1.addLayout(vbox2)
+        outer_layout.addLayout(vbox3)
+        tab3.setLayout(outer_layout)
+        return tab3
+
+
 
     @pyqtSlot()
     def on_click(self):
@@ -458,6 +483,8 @@ class App(QWidget):
         global Energy_isContinuous
         global thresh1
         global export_settings
+        global isMousetrack_glob
+
         two_letter_weight = self.two_syl_long_slider.value()
         one_syl_weight = self.one_syl_slider.value()
         two_syl_weight = self.two_syl_slider.value()
@@ -476,6 +503,7 @@ class App(QWidget):
 
         load_previous = self.load_creature_bank.isChecked()
         export_settings = self.setting_export.isChecked()
+        isMousetrack_glob = self.mouse_export.isChecked()
 
 
         self.close()
@@ -488,8 +516,6 @@ if __name__ == '__main__':
     ex = App()
     window.show()
     app.exec_()
-
-
 
 
 
@@ -976,7 +1002,8 @@ while running:
                         energy = calculate_energy(energy, energy_mean, Energy_isContinuous, -impact_max, -impact_min) # change energy level
                         isCorrect = False
 
-                    write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
+                    if isMousetrack_glob:
+                        write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
                     mouse_tracking_file_number = mouse_tracking_file_number + 1
                     mouse_tracking.clear()
 
