@@ -5,8 +5,7 @@ import math
 from datetime import date
 from PIL import Image
 from pathlib import Path
-import matplotlib
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 
 divide_resolution = 10
 

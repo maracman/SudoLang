@@ -704,7 +704,7 @@ labelY = 550
 # score
 font = pygame.font.Font('freesansbold.ttf', 32)
 score_value = 0
-lives = 20
+lives = 100
 livesX = 10
 livesY = 40
 
