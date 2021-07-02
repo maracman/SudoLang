@@ -1,4 +1,6 @@
 import pygame
+from pygame import mixer
+
 import random
 import math
 import time
@@ -752,6 +754,18 @@ target_type = animal_type[random.randint(0, animals_on_screen)]
 targetX = 720
 targetY = 520
 
+#fps
+fps = 60
+
+ #sound mixer
+mixer.init()
+mixer.music.set_volume(0.7)
+audio_library = 'data/audio/'
+silence = pygame.mixer.Sound(audio_library + 'silence.wav')
+wait = 0.5
+delay = wait * fps
+scheduler = True
+
 
 # csv array and elements
 csv_output = []
@@ -911,6 +925,13 @@ def get_new_randXY(range_i):
 
     return x, y
 
+def playsounds(audio):
+    audio = pygame.mixer.Sound(audio_library + audio)
+    audio.play()
+    scheduler = False
+    return scheduler, wait * fps
+
+
 # new array positions that dont overlap
 for i in range(max_animals):
     animalX[i], animalY[i] = get_new_randXY(max_animals)
@@ -996,6 +1017,8 @@ while running:
                             if animal_variety < (inputData["animal_ID"].count() - 1):
                                 animal_variety += 1
 
+                        scheduler = True
+
                     else:
 
                         lives -= 1
@@ -1026,6 +1049,13 @@ while running:
         if animalY[i] >= -5 and animalY[i] < 5:
             if animal_type[i] == target_type:
                 start_time[i] = new_start_time
+
+        # play audio of name after delay
+    sound_file = str(animalDict["label"][target_type] + '.wav')
+    if scheduler:
+        delay = delay - 1
+        if delay <= 0:
+            scheduler, delay = playsounds(sound_file)
 
     # Game over
     if lives <= 0 or energy <= 0:
@@ -1060,4 +1090,4 @@ while running:
     mouse_x, mouse_y = pygame.mouse.get_pos()
     mouse_data_newline = [mouse_x, mouse_y, (time.time() - epoch_start)]
     mouse_tracking.append(mouse_data_newline)
-    clock.tick(50)
+    clock.tick(fps)
