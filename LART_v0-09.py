@@ -54,7 +54,6 @@ else:
     dir_path = os.getcwd()
 
 
-
 # PyQt window
 
 
@@ -486,7 +485,8 @@ class App(QWidget):
         global thresh1
         global export_settings
         global isMousetrack_glob
-
+        global accepted_glob
+        accepted_glob = True
         two_letter_weight = self.two_syl_long_slider.value()
         one_syl_weight = self.one_syl_slider.value()
         two_syl_weight = self.two_syl_slider.value()
@@ -547,6 +547,12 @@ if isSurvey:
         four_syl_weight, mon_ani_ratio, load_previous, rareness, energy_mean, energy, impact_max, \
         impact_min, Energy_isContinuous, thresh1 = pickle.load(f)
 
+
+#quit on 'x' in settings
+if 'accepted_glob' in locals():
+    running = accepted_glob
+else:
+    sys.exit()
 
 
 # load input CSV
@@ -939,7 +945,9 @@ for i in range(max_animals):
 
 
 # Game loop
-running = True
+
+
+
 while running:
 
     for event in pygame.event.get():
