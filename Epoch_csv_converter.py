@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 divide_resolution = 10
 acc_curve = 8
 
+
 def get_path():
     operating_system = sys.platform
     if operating_system == "darwin":
