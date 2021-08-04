@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 
 # default settings
 word_slider_values = [0, 50, 50, 25, 10, 10]
+object_slider_values = [50, 50, 50]
 
 mon_ani_ratio = 50
 load_previous = False
@@ -96,9 +97,6 @@ class App(QWidget):
         vbox3 = QVBoxLayout()
         hbox2 = QHBoxLayout()
         vbox4 = QVBoxLayout()
-
-        #Default Values
-        mon_ani_value = mon_ani_ratio
 
         self.canvas = Canvas(self, *word_slider_values, width=0, height=0)
         self.canvas.setStyleSheet("""QWidget {background-color:   grey}""")
@@ -208,21 +206,50 @@ class App(QWidget):
         wrd6_label.setAlignment(Qt.AlignCenter)
         wrd6_label.adjustSize()
 
-        self.mon_ani_slider = QSlider(Qt.Horizontal, self)
-        self.mon_ani_slider.setValue(mon_ani_value)
-        self.mon_ani_slider.setMinimum(0)
-        self.mon_ani_slider.setMaximum(100)
+        self.obj1_slider = QSlider(Qt.Horizontal, self)
+        self.obj1_slider.setValue(object_slider_values[0])
+        self.obj1_slider.setMinimum(0)
+        self.obj1_slider.setMaximum(100)
 
-        mon_ani_value_label = QLabel('0', self)
-        mon_ani_value_label.setMinimumWidth(80)
-        mon_ani_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        mon_ani_value_label.setText(str(mon_ani_value))
+        obj1_v_label = QLabel('0', self)
+        obj1_v_label.setMinimumWidth(80)
+        obj1_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        obj1_v_label.setText(str(object_slider_values[0]))
 
-        mon_ani_label = QLabel('Animal to monster ratio', self)
-        mon_ani_label.setAlignment(Qt.AlignCenter)
-        mon_ani_label.adjustSize()
-        mon_ani_label.setToolTip("Sets the percentage of earth-animals shown to the player. \n"
-                                 "The remaining percentage represents monsters/aliens.")
+        obj1_label = QLabel('Animal to monster ratio', self)
+        obj1_label.setAlignment(Qt.AlignCenter)
+        obj1_label.adjustSize()
+        obj1_label.setToolTip("")
+
+        self.obj2_slider = QSlider(Qt.Horizontal, self)
+        self.obj2_slider.setValue(object_slider_values[1])
+        self.obj2_slider.setMinimum(0)
+        self.obj2_slider.setMaximum(100)
+
+        obj2_v_label = QLabel('0', self)
+        obj2_v_label.setMinimumWidth(80)
+        obj2_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        obj2_v_label.setText(str(object_slider_values[1]))
+
+        obj2_label = QLabel('Animal to monster ratio', self)
+        obj2_label.setAlignment(Qt.AlignCenter)
+        obj2_label.adjustSize()
+        obj2_label.setToolTip("")
+
+        self.obj3_slider = QSlider(Qt.Horizontal, self)
+        self.obj3_slider.setValue(object_slider_values[2])
+        self.obj3_slider.setMinimum(0)
+        self.obj3_slider.setMaximum(100)
+
+        obj3_v_label = QLabel('0', self)
+        obj3_v_label.setMinimumWidth(80)
+        obj3_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        obj3_v_label.setText(str(object_slider_values[2]))
+
+        obj3_label = QLabel('Animal to monster ratio', self)
+        obj3_label.setAlignment(Qt.AlignCenter)
+        obj3_label.adjustSize()
+        obj3_label.setToolTip("")
 
         # Add widgets to layouts
         top_layout.addRow("User ID:", self.IDtextbox)
@@ -261,10 +288,21 @@ class App(QWidget):
         vbox2.addWidget(wrd6_v_label)
         vbox2.addSpacing(15)
 
-        vbox3.addWidget(mon_ani_label)
-        vbox3.addWidget(self.mon_ani_slider)
-        vbox3.addWidget(mon_ani_value_label)
+        vbox3.addWidget(obj1_label)
+        vbox3.addWidget(self.obj1_slider)
+        vbox3.addWidget(obj1_v_label)
         vbox3.addSpacing(15)
+
+        vbox3.addWidget(obj2_label)
+        vbox3.addWidget(self.obj2_slider)
+        vbox3.addWidget(obj2_v_label)
+        vbox3.addSpacing(15)
+
+        vbox3.addWidget(obj3_label)
+        vbox3.addWidget(self.obj3_slider)
+        vbox3.addWidget(obj3_v_label)
+        vbox3.addSpacing(15)
+
 
         vbox4.addWidget(self.rareness_ordering)
         vbox3.addSpacing(15)
@@ -292,8 +330,10 @@ class App(QWidget):
         self.wrd6_slider.valueChanged.connect(
             lambda: wrd6_v_label.setText(str(word_slider_values[5])))
         self.wrd6_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
-        self.mon_ani_slider.valueChanged.connect(
-            lambda: mon_ani_value_label.setText(str(self.mon_ani_slider.value())))
+
+        self.obj1_slider.valueChanged.connect(
+            lambda: obj1_v_label.setText(str(object_slider_values[0])))
+        #self.obj1_slider.valueChanged.connect(lambda: self.value_change(object_slider_values)
 
 
 
@@ -321,7 +361,7 @@ class App(QWidget):
         weights[4] = self.wrd5_slider.value()
         weights[5] = self.wrd6_slider.value()
 
-        self.canvas.plot(weights)
+        self.canvas.plot(*weights)
         self.canvas.draw()
 
     def tab2_UI(self):
@@ -491,8 +531,7 @@ class App(QWidget):
         tab3.setLayout(outer_layout)
         return tab3
 
-    def redraw(self, weights):
-        self.canvas.plot(weights)
+
 
     @pyqtSlot()
     def on_click(self):
@@ -522,7 +561,7 @@ class App(QWidget):
         two_syl_long_weight = self.wrd4_slider.value()
         three_syl_weight = self.wrd5_slider.value()
         four_syl_weight = self.wrd6_slider.value()
-        mon_ani_ratio = self.mon_ani_slider.value()
+        mon_ani_ratio = self.obj1_slider.value()
         rareness = self.rareness_ordering.isChecked()
         id_name = self.IDtextbox.text()
 
@@ -549,29 +588,27 @@ class Canvas(FigureCanvas):
         #fig = plt.subplots()
         FigureCanvas.__init__(self, fig)
         self.setParent(parent)
-        self.plot(weights)
+        self.plot(*weights)
 
-
-
-
-    def plot(self, weights):
+    def plot(self, *weights):
         self.figure.clear()
         if len(weights) > 1:
+            #df = pd.DataFrame()
+            columns = []
+            for i in range(len(weights)):
+                label = 'v' + str(int(i)+1)
+                columns.append(label)
 
-            v1 = weights[0]
-            v2 = weights[1]
-            v3 = weights[2]
-            v4 = weights[3]
-            v5 = weights[4]
-            v6 = weights[5]
+            df = pd.DataFrame([weights], columns=columns)
+
             word_slider_colours = ["blue", "red", "yellow", "pink", "orange", "green"]
             self.figure.clear()
             self.ax = self.figure.subplots()
-            df = pd.DataFrame({"1": [v1], "2": [v2], "3": [v3], "4": [v4], "5": [v5], "6": [v6]})
+
             df.plot.barh(stacked=True, ax=self.ax, legend=False, edgecolor='black', color=word_slider_colours)
             self.ax.axis("off")
-            self.ax.margins(x=0, y=0)
-            self.ax.patch.set_facecolor('none')
+            #self.ax.margins(x=0, y=0)
+            #self.ax.patch.set_facecolor('none')
 
 
 
