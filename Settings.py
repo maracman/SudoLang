@@ -14,16 +14,14 @@ from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
     QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import pyqtSlot, Qt
-
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 
 # default settings
-two_letter_weight = 0
-one_syl_weight = 50
-two_syl_weight = 50
-two_syl_long_weight = 25
-three_syl_weight = 10
-four_syl_weight = 5
+word_slider_values = [0, 50, 50, 25, 10, 10]
+
 mon_ani_ratio = 50
 load_previous = False
 rareness = True
@@ -68,9 +66,10 @@ class App(QWidget):
         tabs.addTab(self.tab2_UI(), "Scoring")
         tabs.addTab(self.tab3_UI(), "Export")
 
+
         layout.addWidget(tabs)
         hlayout = QHBoxLayout()
-
+        #tabs.setStyleSheet("""background: #E1DFE1""")
         # Create a button in the window
         button = QPushButton('Continue', self)
         button.clicked.connect(self.on_click)
@@ -87,7 +86,9 @@ class App(QWidget):
 
         # define layouts
         tab1 = QWidget()
+        #tab1.setStyleSheet("""background: white""")
         outer_layout = QVBoxLayout()
+        hbox_top = QHBoxLayout()
         top_layout = QFormLayout()
         vbox1 = QVBoxLayout()
         vbox2 = QVBoxLayout()
@@ -97,13 +98,13 @@ class App(QWidget):
         vbox4 = QVBoxLayout()
 
         #Default Values
-        two_letter_value = two_letter_weight
-        one_syl_value = one_syl_weight
-        two_syl_value = two_syl_weight
-        two_syl_long_value = two_syl_weight
-        three_syl_value = three_syl_weight
-        four_syl_value = four_syl_weight
         mon_ani_value = mon_ani_ratio
+
+        self.canvas = Canvas(self, *word_slider_values, width=0, height=0)
+        self.canvas.setStyleSheet("""QWidget {background-color:   grey}""")
+        self.canvas.setMinimumHeight(30)
+        self.canvas.setMaximumHeight(40)
+
 
         #Define settings widgets
         self.IDtextbox = QLineEdit(self)
@@ -123,89 +124,89 @@ class App(QWidget):
                                            "from the player's previous game. \n"
                                             'Settings for word weights will be ignored ')
 
-        self.two_letter_slider = QSlider(Qt.Horizontal, self)
-        self.two_letter_slider.setValue(two_letter_value)
-        self.two_letter_slider.setMinimum(0)
-        self.two_letter_slider.setMaximum(100)
+        self.wrd1_slider = QSlider(Qt.Horizontal, self)
+        self.wrd1_slider.setValue(word_slider_values[0])
+        self.wrd1_slider.setMinimum(0)
+        self.wrd1_slider.setMaximum(100)
 
-        two_letter_value_label = QLabel('0', self)
-        two_letter_value_label.setMinimumWidth(80)
-        two_letter_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        two_letter_value_label.setText(str(two_letter_value))
+        wrd1_v_label = QLabel('0', self)
+        wrd1_v_label.setMinimumWidth(80)
+        wrd1_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        wrd1_v_label.setText(str(word_slider_values[0]))
 
-        two_letter_label = QLabel('Two letter weight', self)
-        two_letter_label.setAlignment(Qt.AlignCenter)
-        two_letter_label.adjustSize()
+        wrd1_label = QLabel('Two letter weight', self)
+        wrd1_label.setAlignment(Qt.AlignCenter)
+        wrd1_label.adjustSize()
 
-        self.one_syl_slider = QSlider(Qt.Horizontal, self)
-        self.one_syl_slider.setValue(one_syl_value)
-        self.one_syl_slider.setMinimum(0)
-        self.one_syl_slider.setMaximum(100)
+        self.wrd2_slider = QSlider(Qt.Horizontal, self)
+        self.wrd2_slider.setValue(word_slider_values[1])
+        self.wrd2_slider.setMinimum(0)
+        self.wrd2_slider.setMaximum(100)
 
-        one_syl_value_label = QLabel('0', self)
-        one_syl_value_label.setMinimumWidth(80)
-        one_syl_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        one_syl_value_label.setText(str(one_syl_value))
+        wrd2_v_label = QLabel('0', self)
+        wrd2_v_label.setMinimumWidth(80)
+        wrd2_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        wrd2_v_label.setText(str(word_slider_values[1]))
 
-        one_syl_label = QLabel('One syllable weight', self)
-        one_syl_label.setAlignment(Qt.AlignCenter)
-        one_syl_label.adjustSize()
+        wrd2_label = QLabel('One syllable weight', self)
+        wrd2_label.setAlignment(Qt.AlignCenter)
+        wrd2_label.adjustSize()
 
-        self.two_syl_slider = QSlider(Qt.Horizontal, self)
-        self.two_syl_slider.setValue(two_syl_value)
-        self.two_syl_slider.setMinimum(0)
-        self.two_syl_slider.setMaximum(100)
+        self.wrd3_slider = QSlider(Qt.Horizontal, self)
+        self.wrd3_slider.setValue(word_slider_values[2])
+        self.wrd3_slider.setMinimum(0)
+        self.wrd3_slider.setMaximum(100)
 
-        two_syl_value_label = QLabel('0', self)
-        two_syl_value_label.setMinimumWidth(80)
-        two_syl_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        two_syl_value_label.setText(str(two_syl_value))
+        wrd3_v_label = QLabel('0', self)
+        wrd3_v_label.setMinimumWidth(80)
+        wrd3_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        wrd3_v_label.setText(str(word_slider_values[2]))
 
-        two_syl_label = QLabel('Two syllable weight', self)
-        two_syl_label.setAlignment(Qt.AlignCenter)
-        two_syl_label.adjustSize()
+        wrd3_label = QLabel('Two syllable weight', self)
+        wrd3_label.setAlignment(Qt.AlignCenter)
+        wrd3_label.adjustSize()
 
-        self.two_syl_long_slider = QSlider(Qt.Horizontal, self)
-        self.two_syl_long_slider.setValue(two_syl_long_value)
-        self.two_syl_long_slider.setMinimum(0)
-        self.two_syl_long_slider.setMaximum(100)
+        self.wrd4_slider = QSlider(Qt.Horizontal, self)
+        self.wrd4_slider.setValue(word_slider_values[3])
+        self.wrd4_slider.setMinimum(0)
+        self.wrd4_slider.setMaximum(100)
 
-        two_syl_long_value_label = QLabel('0', self)
-        two_syl_long_value_label.setMinimumWidth(80)
-        two_syl_long_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        two_syl_long_value_label.setText(str(two_syl_long_value))
+        wrd4_v_label = QLabel('0', self)
+        wrd4_v_label.setMinimumWidth(80)
+        wrd4_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        wrd4_v_label.setText(str(word_slider_values[3]))
 
-        two_syl_long_label = QLabel('Two syllable (long) weight', self)
-        two_syl_long_label.setAlignment(Qt.AlignCenter)
-        two_syl_long_label.adjustSize()
+        wrd4_label = QLabel('Two syllable (long) weight', self)
+        wrd4_label.setAlignment(Qt.AlignCenter)
+        wrd4_label.adjustSize()
 
-        self.three_syl_slider = QSlider(Qt.Horizontal, self)
-        self.three_syl_slider.setValue(three_syl_value)
-        self.three_syl_slider.setMinimum(0)
-        self.three_syl_slider.setMaximum(100)
+        self.wrd5_slider = QSlider(Qt.Horizontal, self)
+        self.wrd5_slider.setValue(word_slider_values[4])
+        self.wrd5_slider.setMinimum(0)
+        self.wrd5_slider.setMaximum(100)
 
-        three_syl_value_label = QLabel('0', self)
-        three_syl_value_label.setMinimumWidth(80)
-        three_syl_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        three_syl_value_label.setText(str(three_syl_value))
+        wrd5_v_label = QLabel('0', self)
+        wrd5_v_label.setMinimumWidth(80)
+        wrd5_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        wrd5_v_label.setText(str(word_slider_values[4]))
 
-        three_syl_label = QLabel('Three syllable weight', self)
-        three_syl_label.setAlignment(Qt.AlignCenter)
-        three_syl_label.adjustSize()
+        wrd5_label = QLabel('Three syllable weight', self)
+        wrd5_label.setAlignment(Qt.AlignCenter)
+        wrd5_label.adjustSize()
 
-        self.four_syl_slider = QSlider(Qt.Horizontal, self)
-        self.four_syl_slider.setValue(four_syl_value)
-        self.four_syl_slider.setMinimum(0)
-        self.four_syl_slider.setMaximum(100)
+        self.wrd6_slider = QSlider(Qt.Horizontal, self)
+        self.wrd6_slider.setValue(word_slider_values[5])
+        self.wrd6_slider.setMinimum(0)
+        self.wrd6_slider.setMaximum(100)
 
-        four_syl_value_label = QLabel('0', self)
-        four_syl_value_label.setMinimumWidth(80)
-        four_syl_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        four_syl_value_label.setText(str(four_syl_value))
+        wrd6_v_label = QLabel('0', self)
+        wrd6_v_label.setMinimumWidth(80)
+        wrd6_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        wrd6_v_label.setText(str(word_slider_values[5]))
 
-        four_syl_label = QLabel('Four syllable weight', self)
-        four_syl_label.setAlignment(Qt.AlignCenter)
-        four_syl_label.adjustSize()
+        wrd6_label = QLabel('Four syllable weight', self)
+        wrd6_label.setAlignment(Qt.AlignCenter)
+        wrd6_label.adjustSize()
 
         self.mon_ani_slider = QSlider(Qt.Horizontal, self)
         self.mon_ani_slider.setValue(mon_ani_value)
@@ -226,36 +227,38 @@ class App(QWidget):
         # Add widgets to layouts
         top_layout.addRow("User ID:", self.IDtextbox)
 
+        hbox_top.addWidget(self.canvas)
+
         vbox1.addSpacing(15)
-        vbox1.addWidget(two_letter_label)
-        vbox1.addWidget(self.two_letter_slider)
-        vbox1.addWidget(two_letter_value_label)
+        vbox1.addWidget(wrd1_label)
+        vbox1.addWidget(self.wrd1_slider)
+        vbox1.addWidget(wrd1_v_label)
         vbox1.addSpacing(15)
 
-        vbox1.addWidget(one_syl_label)
-        vbox1.addWidget(self.one_syl_slider)
-        vbox1.addWidget(one_syl_value_label)
+        vbox1.addWidget(wrd2_label)
+        vbox1.addWidget(self.wrd2_slider)
+        vbox1.addWidget(wrd2_v_label)
         vbox1.addSpacing(15)
 
-        vbox1.addWidget(two_syl_label)
-        vbox1.addWidget(self.two_syl_slider)
-        vbox1.addWidget(two_syl_value_label)
+        vbox1.addWidget(wrd3_label)
+        vbox1.addWidget(self.wrd3_slider)
+        vbox1.addWidget(wrd3_v_label)
         vbox1.addSpacing(15)
 
         vbox2.addSpacing(15)
-        vbox2.addWidget(two_syl_long_label)
-        vbox2.addWidget(self.two_syl_long_slider)
-        vbox2.addWidget(two_syl_long_value_label)
+        vbox2.addWidget(wrd4_label)
+        vbox2.addWidget(self.wrd4_slider)
+        vbox2.addWidget(wrd4_v_label)
         vbox2.addSpacing(15)
 
-        vbox2.addWidget(three_syl_label)
-        vbox2.addWidget(self.three_syl_slider)
-        vbox2.addWidget(three_syl_value_label)
+        vbox2.addWidget(wrd5_label)
+        vbox2.addWidget(self.wrd5_slider)
+        vbox2.addWidget(wrd5_v_label)
         vbox2.addSpacing(15)
 
-        vbox2.addWidget(four_syl_label)
-        vbox2.addWidget(self.four_syl_slider)
-        vbox2.addWidget(four_syl_value_label)
+        vbox2.addWidget(wrd6_label)
+        vbox2.addWidget(self.wrd6_slider)
+        vbox2.addWidget(wrd6_v_label)
         vbox2.addSpacing(15)
 
         vbox3.addWidget(mon_ani_label)
@@ -267,23 +270,39 @@ class App(QWidget):
         vbox3.addSpacing(15)
         vbox4.addWidget(self.load_creature_bank)
 
+        # Set Style Sheets
+        #self.wrd1_slider.setStyleSheet("""QSlider::handle:horizontal { background: blue; border-radius: 10px; }""")
+        #tab1.setStyleSheet()
+
         #functions for slider value changes
-        self.two_letter_slider.valueChanged.connect(lambda: two_letter_value_label.setText(str(self.two_letter_slider.value())))
-        self.one_syl_slider.valueChanged.connect(
-            lambda: one_syl_value_label.setText(str(self.one_syl_slider.value())))
-        self.two_syl_slider.valueChanged.connect(
-            lambda: two_syl_value_label.setText(str(self.two_syl_slider.value())))
-        self.two_syl_long_slider.valueChanged.connect(
-            lambda: two_syl_long_value_label.setText(str(self.two_syl_long_slider.value())))
-        self.three_syl_slider.valueChanged.connect(
-            lambda: three_syl_value_label.setText(str(self.three_syl_slider.value())))
-        self.four_syl_slider.valueChanged.connect(
-            lambda: four_syl_value_label.setText(str(self.four_syl_slider.value())))
+        self.wrd1_slider.valueChanged.connect(lambda: wrd1_v_label.setText(str(word_slider_values[0])))
+        self.wrd1_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
+        self.wrd2_slider.valueChanged.connect(
+            lambda: wrd2_v_label.setText(str(word_slider_values[1])))
+        self.wrd2_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
+        self.wrd3_slider.valueChanged.connect(
+            lambda: wrd3_v_label.setText(str(word_slider_values[2])))
+        self.wrd3_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
+        self.wrd4_slider.valueChanged.connect(
+            lambda: wrd4_v_label.setText(str(word_slider_values[3])))
+        self.wrd4_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
+        self.wrd5_slider.valueChanged.connect(
+            lambda: wrd5_v_label.setText(str(word_slider_values[4])))
+        self.wrd5_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
+        self.wrd6_slider.valueChanged.connect(
+            lambda: wrd6_v_label.setText(str(word_slider_values[5])))
+        self.wrd6_slider.valueChanged.connect(lambda: self.value_change(word_slider_values))
         self.mon_ani_slider.valueChanged.connect(
             lambda: mon_ani_value_label.setText(str(self.mon_ani_slider.value())))
 
+
+
+
+
+
         # nest layouts
         outer_layout.addLayout(top_layout)
+        outer_layout.addLayout(hbox_top)
         outer_layout.addLayout(hbox1)
         hbox1.addLayout(vbox1)
         hbox1.addLayout(vbox2)
@@ -293,6 +312,17 @@ class App(QWidget):
         hbox2.addLayout(vbox4)
         tab1.setLayout(outer_layout)
         return tab1
+
+    def value_change(self, weights):
+        weights[0] = self.wrd1_slider.value()
+        weights[1] = self.wrd2_slider.value()
+        weights[2] = self.wrd3_slider.value()
+        weights[3] = self.wrd4_slider.value()
+        weights[4] = self.wrd5_slider.value()
+        weights[5] = self.wrd6_slider.value()
+
+        self.canvas.plot(weights)
+        self.canvas.draw()
 
     def tab2_UI(self):
         tab2 = QWidget()
@@ -395,7 +425,10 @@ class App(QWidget):
         tally_theshold_label.setToolTip('when the tally for individual creature types exceed \n '
                                               'this value the target image will not accompany \n'
                                         'the target label for that creature.')
+        # style sheets
 
+
+        # value change functions
         self.starting_energy_slider.valueChanged.connect(lambda: starting_energy_value_label.setText(str(self.starting_energy_slider.value())))
         self.stick_point_slider.valueChanged.connect(lambda: stick_point_value_label.setText(str(self.stick_point_slider.value())))
         self.min_impact_slider.valueChanged.connect(lambda: min_impact_value_label.setText(str(self.min_impact_slider.value())))
@@ -458,7 +491,8 @@ class App(QWidget):
         tab3.setLayout(outer_layout)
         return tab3
 
-
+    def redraw(self, weights):
+        self.canvas.plot(weights)
 
     @pyqtSlot()
     def on_click(self):
@@ -482,12 +516,12 @@ class App(QWidget):
         global isMousetrack_glob
         global accepted_glob
         accepted_glob = True
-        two_letter_weight = self.two_syl_long_slider.value()
-        one_syl_weight = self.one_syl_slider.value()
-        two_syl_weight = self.two_syl_slider.value()
-        two_syl_long_weight = self.two_syl_long_slider.value()
-        three_syl_weight = self.three_syl_slider.value()
-        four_syl_weight = self.four_syl_slider.value()
+        two_letter_weight = self.wrd4_slider.value()
+        one_syl_weight = self.wrd2_slider.value()
+        two_syl_weight = self.wrd3_slider.value()
+        two_syl_long_weight = self.wrd4_slider.value()
+        three_syl_weight = self.wrd5_slider.value()
+        four_syl_weight = self.wrd6_slider.value()
         mon_ani_ratio = self.mon_ani_slider.value()
         rareness = self.rareness_ordering.isChecked()
         id_name = self.IDtextbox.text()
@@ -504,6 +538,42 @@ class App(QWidget):
 
 
         self.close()
+
+
+
+
+class Canvas(FigureCanvas):
+    def __init__(self, *weights, parent=None, width=8, height=5, dpi=100):
+        fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
+        #self.axes = fig.add_subplot(111)
+        #fig = plt.subplots()
+        FigureCanvas.__init__(self, fig)
+        self.setParent(parent)
+        self.plot(weights)
+
+
+
+
+    def plot(self, weights):
+        self.figure.clear()
+        if len(weights) > 1:
+
+            v1 = weights[0]
+            v2 = weights[1]
+            v3 = weights[2]
+            v4 = weights[3]
+            v5 = weights[4]
+            v6 = weights[5]
+            word_slider_colours = ["blue", "red", "yellow", "pink", "orange", "green"]
+            self.figure.clear()
+            self.ax = self.figure.subplots()
+            df = pd.DataFrame({"1": [v1], "2": [v2], "3": [v3], "4": [v4], "5": [v5], "6": [v6]})
+            df.plot.barh(stacked=True, ax=self.ax, legend=False, edgecolor='black', color=word_slider_colours)
+            self.ax.axis("off")
+            self.ax.margins(x=0, y=0)
+            self.ax.patch.set_facecolor('none')
+
+
 
 print(id_name)
 
