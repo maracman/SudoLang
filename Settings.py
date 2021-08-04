@@ -103,6 +103,10 @@ class App(QWidget):
         self.canvas.setMinimumHeight(30)
         self.canvas.setMaximumHeight(40)
 
+        self.canvas1 = Canvas(self, *object_slider_values, width=0, height=0)
+        self.canvas1.setStyleSheet("""QWidget {background-color:   grey}""")
+        self.canvas1.setMinimumHeight(30)
+        self.canvas1.setMaximumHeight(40)
 
         #Define settings widgets
         self.IDtextbox = QLineEdit(self)
@@ -216,7 +220,7 @@ class App(QWidget):
         obj1_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         obj1_v_label.setText(str(object_slider_values[0]))
 
-        obj1_label = QLabel('Animal to monster ratio', self)
+        obj1_label = QLabel('Object Category One', self)
         obj1_label.setAlignment(Qt.AlignCenter)
         obj1_label.adjustSize()
         obj1_label.setToolTip("")
@@ -231,7 +235,7 @@ class App(QWidget):
         obj2_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         obj2_v_label.setText(str(object_slider_values[1]))
 
-        obj2_label = QLabel('Animal to monster ratio', self)
+        obj2_label = QLabel('Object Category Two', self)
         obj2_label.setAlignment(Qt.AlignCenter)
         obj2_label.adjustSize()
         obj2_label.setToolTip("")
@@ -246,7 +250,7 @@ class App(QWidget):
         obj3_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         obj3_v_label.setText(str(object_slider_values[2]))
 
-        obj3_label = QLabel('Animal to monster ratio', self)
+        obj3_label = QLabel('Object Category Three', self)
         obj3_label.setAlignment(Qt.AlignCenter)
         obj3_label.adjustSize()
         obj3_label.setToolTip("")
@@ -287,6 +291,8 @@ class App(QWidget):
         vbox2.addWidget(self.wrd6_slider)
         vbox2.addWidget(wrd6_v_label)
         vbox2.addSpacing(15)
+
+        vbox3.addWidget(self.canvas1)
 
         vbox3.addWidget(obj1_label)
         vbox3.addWidget(self.obj1_slider)
@@ -333,6 +339,13 @@ class App(QWidget):
 
         self.obj1_slider.valueChanged.connect(
             lambda: obj1_v_label.setText(str(object_slider_values[0])))
+        self.obj1_slider.valueChanged.connect(lambda: self.value_change1(object_slider_values))
+        self.obj2_slider.valueChanged.connect(
+            lambda: obj2_v_label.setText(str(object_slider_values[1])))
+        self.obj2_slider.valueChanged.connect(lambda: self.value_change1(object_slider_values))
+        self.obj3_slider.valueChanged.connect(
+            lambda: obj3_v_label.setText(str(object_slider_values[2])))
+        self.obj3_slider.valueChanged.connect(lambda: self.value_change1(object_slider_values))
         #self.obj1_slider.valueChanged.connect(lambda: self.value_change(object_slider_values)
 
 
@@ -363,6 +376,14 @@ class App(QWidget):
 
         self.canvas.plot(*weights)
         self.canvas.draw()
+
+    def value_change1(self, weights):
+        weights[0] = self.obj1_slider.value()
+        weights[1] = self.obj2_slider.value()
+        weights[2] = self.obj3_slider.value()
+
+        self.canvas1.plot(*weights)
+        self.canvas1.draw()
 
     def tab2_UI(self):
         tab2 = QWidget()
