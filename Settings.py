@@ -9,19 +9,38 @@ clock = pygame.time.Clock()
 import re
 import os
 import platform
-from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
-    QApplication, QWidget, QPushButton, QLineEdit, QMessageBox, QHBoxLayout, \
-    QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox
+from PyQt5.QtWidgets import *
+from PyQt5 import QtCore
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+
+    #QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
+    #QApplication, QWidget, QPushButton, QLineEdit, QMessageBox, QHBoxLayout, \
+    #QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox, QScrollArea, \
+    #QScrollBar, QListWidget
+
 from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtGui import *
 from PyQt5.QtCore import pyqtSlot, Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 # default settings
 word_slider_values = [0, 50, 50, 25, 10, 10]
 object_slider_values = [50, 50, 50]
+energy_slider_values = [0, 10, 4, 50]  # empty, max, min, stick-point
+output_checkboxes = pd.DataFrame(
+    [['click_time', True, "timestamp for click: 'click_time'"], ['elapsed_time', True, "'elapsed_time'"],
+     ['elapsed_since_correct', True, "'elapsed_since_correct'"], ['object_ref', True, "'elapsed_since_correct'"],
+     ['score_for_clicked', True, "'score_for_clicked'"], ['object_ref', True, "'object_ref'"],
+     ['word_category', True, "'word_category'"], ['isRepeat',True, "'isRepeat'",],
+     ['isTarget_img', True, "'isTarget_img'"], ['x_position',True, "'x_position'"], ['player_energy',True,"'player_energy'"]],
+    columns=pd.Index(['variable_name', 'value', 'label'])
+)
+
 
 mon_ani_ratio = 50
 load_previous = False
@@ -394,10 +413,12 @@ class App(QWidget):
         vbox3 = QVBoxLayout()
 
         starting_energy_value = energy
-        stick_point_value = energy_mean
-        min_impact_value = impact_min
-        max_impact_value = impact_max
         tally_threshold_value = thresh1
+
+        self.canvas3 = PlotCanvas(self, *energy_slider_values, width=0, height=0)
+        self.canvas3.setStyleSheet("""QWidget {background-color:   grey}""")
+        self.canvas3.setMinimumHeight(80)
+        self.canvas3.setMaximumHeight(150)
 
         self.continuous_energy = QCheckBox(" linear energy impact ", self)
         self.continuous_energy.toggle()
@@ -421,7 +442,7 @@ class App(QWidget):
         starting_energy_label.adjustSize()
 
         self.stick_point_slider = QSlider(Qt.Horizontal, self)
-        self.stick_point_slider.setValue(stick_point_value)
+        self.stick_point_slider.setValue(energy_slider_values[3])
         self.stick_point_slider.setMinimum(0)
         self.stick_point_slider.setMaximum(99)
 
@@ -429,7 +450,7 @@ class App(QWidget):
         stick_point_value_label = QLabel('0', self)
         stick_point_value_label.setMinimumWidth(80)
         stick_point_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        stick_point_value_label.setText(str(stick_point_value))
+        stick_point_value_label.setText(str(energy_slider_values[3]))
 
         stick_point_label = QLabel('Energy stick point', self)
         stick_point_label.setAlignment(Qt.AlignCenter)
@@ -440,15 +461,15 @@ class App(QWidget):
                                            'player energy exceeds this point. ')
 
         self.min_impact_slider = QSlider(Qt.Horizontal, self)
-        self.min_impact_slider.setMinimum(0)
-        self.min_impact_slider.setMaximum(5)
-        self.min_impact_slider.setValue(min_impact_value)
+        self.min_impact_slider.setMinimum(1)
+        self.min_impact_slider.setMaximum(15)
+        self.min_impact_slider.setValue(energy_slider_values[2])
 
 
         min_impact_value_label = QLabel('0', self)
         min_impact_value_label.setMinimumWidth(80)
         min_impact_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        min_impact_value_label.setText(str(min_impact_value))
+        min_impact_value_label.setText(str(energy_slider_values[2]))
 
         min_impact_label = QLabel('Minimum energy impact', self)
         min_impact_label.setAlignment(Qt.AlignCenter)
@@ -457,13 +478,13 @@ class App(QWidget):
         self.max_impact_slider = QSlider(Qt.Horizontal, self)
         self.max_impact_slider.setMinimum(5)
         self.max_impact_slider.setMaximum(20)
-        self.max_impact_slider.setValue(max_impact_value)
+        self.max_impact_slider.setValue(energy_slider_values[1])
 
 
         max_impact_value_label = QLabel('0', self)
         max_impact_value_label.setMinimumWidth(80)
         max_impact_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        max_impact_value_label.setText(str(max_impact_value))
+        max_impact_value_label.setText(str(energy_slider_values[1]))
 
         max_impact_label = QLabel('Maximum energy impact', self)
         max_impact_label.setAlignment(Qt.AlignCenter)
@@ -491,10 +512,15 @@ class App(QWidget):
 
         # value change functions
         self.starting_energy_slider.valueChanged.connect(lambda: starting_energy_value_label.setText(str(self.starting_energy_slider.value())))
-        self.stick_point_slider.valueChanged.connect(lambda: stick_point_value_label.setText(str(self.stick_point_slider.value())))
-        self.min_impact_slider.valueChanged.connect(lambda: min_impact_value_label.setText(str(self.min_impact_slider.value())))
-        self.max_impact_slider.valueChanged.connect(lambda: max_impact_value_label.setText(str(self.max_impact_slider.value())))
+        self.stick_point_slider.valueChanged.connect(lambda: stick_point_value_label.setText(str(energy_slider_values[3])))
+        self.stick_point_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
+        self.min_impact_slider.valueChanged.connect(lambda: min_impact_value_label.setText(str(energy_slider_values[2])))
+        self.min_impact_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
+        self.max_impact_slider.valueChanged.connect(lambda: max_impact_value_label.setText(str(energy_slider_values[1])))
+        self.max_impact_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
         self.tally_theshold_slider.valueChanged.connect(lambda: tally_theshold_value_label.setText(str(self.tally_theshold_slider.value())))
+
+        outer_layout.addWidget(self.canvas3)
 
 
         vbox1.addWidget(starting_energy_label)
@@ -530,6 +556,15 @@ class App(QWidget):
         tab2.setLayout(outer_layout)
         return tab2
 
+    def draw_plot(self, weights):
+        weights[1] = self.max_impact_slider.value()
+        weights[2] = self.min_impact_slider.value()
+        weights[3] = self.stick_point_slider.value()
+
+        self.canvas3.plot(*weights)
+        self.canvas3.draw()
+
+
     def tab3_UI(self):
         tab3 = QWidget()
         outer_layout = QVBoxLayout()
@@ -538,11 +573,29 @@ class App(QWidget):
         vbox2 = QVBoxLayout()
         vbox3 = QVBoxLayout()
 
+        check_values = output_checkboxes['value']
+        check_variables = output_checkboxes['label']
+        self.checkbox_list = QListWidget()
+        for i in range(len(check_variables)):
+            list_item = QListWidgetItem(check_variables[i])
+            list_item.setFlags(list_item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            if check_values[i]:
+                list_item.setCheckState(Qt.Checked)
+            else:
+                list_item.setCheckState(Qt.Unchecked)
+            self.checkbox_list.addItem(list_item)
+
+
+        #self.checkbox_list.setMaximumHeight(400)
+
         isMousetrack = False
         self.mouse_export = QCheckBox("   Export mouse tracking", self)
         self.mouse_export.toggle()
         self.mouse_export.setChecked(isMousetrack)
 
+        #scrollbox.setMaximumHeight(400)
+
+        outer_layout.addWidget(self.checkbox_list)
         hbox1.addWidget(self.mouse_export)
 
         outer_layout.addLayout(hbox1)
@@ -600,8 +653,6 @@ class App(QWidget):
         self.close()
 
 
-
-
 class Canvas(FigureCanvas):
     def __init__(self, *weights, parent=None, width=8, height=5, dpi=100):
         fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
@@ -614,7 +665,7 @@ class Canvas(FigureCanvas):
     def plot(self, *weights):
         self.figure.clear()
         if len(weights) > 1:
-            #df = pd.DataFrame()
+
             columns = []
             for i in range(len(weights)):
                 label = 'v' + str(int(i)+1)
@@ -630,6 +681,71 @@ class Canvas(FigureCanvas):
             self.ax.axis("off")
             #self.ax.margins(x=0, y=0)
             #self.ax.patch.set_facecolor('none')
+
+
+
+class PlotCanvas(FigureCanvas):
+    def __init__(self, *weights, parent = None, width = 5, height = 5, dpi = 100):
+        fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
+        #self.axes = fig.add_subplot(111)
+        #self.axes, fig = plt.subplots()
+        FigureCanvas.__init__(self, fig)
+        self.setParent(parent)
+
+        self.plot(weights)
+
+    def plot(self, *weights):
+        #print(weights)
+        a = 10
+        b = 4
+        if len(weights) > 1:
+            a = int(weights[1])
+            b = int(weights[2])
+            c = int(weights[3])
+
+        #else:
+        #    a = 6
+        #    b = 3
+        #    c = 50
+
+
+        self.figure.clear()
+        #self.ax = self.figure.subplots()
+        #df = pd.DataFrame({"1":[v1],"2": [v2],"3":[v3]})
+        #df.plot(kind="barh", stacked=True, ax=self.ax)
+
+
+        # 100 linearly spaced numbers
+        x = np.linspace(-2, 2, 100)
+        ax = self.figure.add_subplot(1, 1, 1)
+        if a >= b:
+            y = -1 * np.divide((a - b),( 1 + np.power((2 * b * (a - b)),(-1*x)))) + np.divide((a - b), 2)
+
+            ax.spines['left'].set_position('center')
+            ax.spines['bottom'].set_position('zero')
+            ax.spines['right'].set_color('none')
+            ax.spines['top'].set_color('none')
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            ax.set_xlim([-1, 1])
+            ax.set_ylim([-20, 20])
+            ax.axis("off")
+            # plot the function
+            ax.plot(x, y)
+            #ax.legend(loc='upper left')
+        else:
+            y = x*0 + np.divide(b,2)
+            ax.plot(x, y, label='Minimum must not exceed maximum')
+            ax.axis("off")
+            ax.legend(loc='center')
+            ax.set_xlim([-1, 1])
+            ax.set_ylim([-20, 20])
+
+
+
+
+
+
 
 
 
