@@ -33,24 +33,27 @@ word_slider_values = [0, 50, 50, 25, 10, 10]
 object_slider_values = [50, 50, 50]
 energy_slider_values = [0, 10, 4, 50]  # empty, max, min, stick-point
 output_checkboxes = pd.DataFrame(
-    [['click_time', True, "timestamp for click: 'click_time'"], ['elapsed_time', True, "'elapsed_time'"],
-     ['elapsed_since_correct', True, "'elapsed_since_correct'"], ['object_ref', True, "'elapsed_since_correct'"],
-     ['score_for_clicked', True, "'score_for_clicked'"], ['object_ref', True, "'object_ref'"],
-     ['word_category', True, "'word_category'"], ['isRepeat',True, "'isRepeat'",],
-     ['isTarget_img', True, "'isTarget_img'"], ['x_position',True, "'x_position'"], ['player_energy',True,"'player_energy'"]],
+    [['click_time', True, "'click_time': timestamp for click"], ['elapsed_time', True, "'elapsed_time': time since last response "],
+     ['elapsed_since_correct', True, "'elapsed_since_correct': time since last matching response"], ['target_ref', True, "'object_ref': reference name for target object"],
+     ['score_for_clicked', True, "'score_for_clicked': no. of prior matches for target object"], ['response_ref', True, "'response_ref': reference name for response object"],
+     ['word_category', True, "category of the target label 'word_category'"], ['isRepeat', True, "'isRepeat': was the same target shown for the prior stimulus",],
+     ['isTarget_img', True, "'isTarget_img': did the response match the target"], ['x_position', True, "'x_position': horizontal position of the response click "],
+     ['player_energy', True, "'player_energy': player's energy at time of response"]],
     columns=pd.Index(['variable_name', 'value', 'label'])
 )
 
-
+bg_matchingness = 0
 mon_ani_ratio = 50
 load_previous = False
 rareness = True
 
-energy_mean = 30
+energy_mean = 30 #now in energy_slider_values "stick-point"
 energy = 50
-impact_max = 6
-impact_min = 1
+impact_max = 6 #now in energy_slider_values
+impact_min = 1  #now in energy_slider_values
 Energy_isContinuous = False
+
+starting_vocabulary = 3
 
 #Threshold for correct animals clicked at which the image is no longer displayed with the label
 thresh1 = 10
@@ -274,6 +277,37 @@ class App(QWidget):
         obj3_label.adjustSize()
         obj3_label.setToolTip("")
 
+
+        self.bg_match_slider = QSlider(Qt.Horizontal, self)
+        self.bg_match_slider.setValue(bg_matchingness)
+        self.bg_match_slider.setMinimum(0)
+        self.bg_match_slider.setMaximum(100)
+
+        bg_match_v_label = QLabel('0', self)
+        bg_match_v_label.setMinimumWidth(80)
+        bg_match_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        bg_match_v_label.setText(str(bg_matchingness))
+
+        bg_match_label = QLabel('object/background \n matchingness', self)
+        bg_match_label.setAlignment(Qt.AlignCenter)
+        bg_match_label.adjustSize()
+        bg_match_label.setToolTip("")
+
+        self.start_vocab_slider = QSlider(Qt.Horizontal, self)
+        self.start_vocab_slider.setValue(starting_vocabulary)
+        self.start_vocab_slider.setMinimum(2)
+        self.start_vocab_slider.setMaximum(10)
+
+        start_vocab_v_label = QLabel('0', self)
+        start_vocab_v_label.setMinimumWidth(80)
+        start_vocab_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        start_vocab_v_label.setText(str(starting_vocabulary))
+
+        start_vocab_label = QLabel('starting vocabulary size', self)
+        start_vocab_label.setAlignment(Qt.AlignCenter)
+        start_vocab_label.adjustSize()
+        start_vocab_label.setToolTip("")
+
         # Add widgets to layouts
         top_layout.addRow("User ID:", self.IDtextbox)
 
@@ -283,12 +317,12 @@ class App(QWidget):
         vbox1.addWidget(wrd1_label)
         vbox1.addWidget(self.wrd1_slider)
         vbox1.addWidget(wrd1_v_label)
-        vbox1.addSpacing(15)
+        vbox1.addSpacing(10)
 
         vbox1.addWidget(wrd2_label)
         vbox1.addWidget(self.wrd2_slider)
         vbox1.addWidget(wrd2_v_label)
-        vbox1.addSpacing(15)
+        vbox1.addSpacing(10)
 
         vbox1.addWidget(wrd3_label)
         vbox1.addWidget(self.wrd3_slider)
@@ -299,12 +333,12 @@ class App(QWidget):
         vbox2.addWidget(wrd4_label)
         vbox2.addWidget(self.wrd4_slider)
         vbox2.addWidget(wrd4_v_label)
-        vbox2.addSpacing(15)
+        vbox2.addSpacing(10)
 
         vbox2.addWidget(wrd5_label)
         vbox2.addWidget(self.wrd5_slider)
         vbox2.addWidget(wrd5_v_label)
-        vbox2.addSpacing(15)
+        vbox2.addSpacing(10)
 
         vbox2.addWidget(wrd6_label)
         vbox2.addWidget(self.wrd6_slider)
@@ -328,9 +362,19 @@ class App(QWidget):
         vbox3.addWidget(obj3_v_label)
         vbox3.addSpacing(15)
 
+        vbox4.addSpacing(20)
+        vbox4.addWidget(bg_match_label)
+        vbox4.addWidget(self.bg_match_slider)
+        vbox4.addWidget(bg_match_v_label)
+        vbox4.addSpacing(10)
+
+        vbox4.addWidget(start_vocab_label)
+        vbox4.addWidget(self.start_vocab_slider)
+        vbox4.addWidget(start_vocab_v_label)
+        vbox4.addSpacing(10)
 
         vbox4.addWidget(self.rareness_ordering)
-        vbox3.addSpacing(15)
+        vbox4.addSpacing(15)
         vbox4.addWidget(self.load_creature_bank)
 
         # Set Style Sheets
@@ -365,9 +409,12 @@ class App(QWidget):
         self.obj3_slider.valueChanged.connect(
             lambda: obj3_v_label.setText(str(object_slider_values[2])))
         self.obj3_slider.valueChanged.connect(lambda: self.value_change1(object_slider_values))
-        #self.obj1_slider.valueChanged.connect(lambda: self.value_change(object_slider_values)
 
+        self.bg_match_slider.valueChanged.connect(
+            lambda: bg_match_v_label.setText(str(self.bg_match_slider.value())))
 
+        self.start_vocab_slider.valueChanged.connect(
+            lambda: start_vocab_v_label.setText(str(self.start_vocab_slider.value())))
 
 
 
@@ -586,17 +633,17 @@ class App(QWidget):
             self.checkbox_list.addItem(list_item)
 
 
-        #self.checkbox_list.setMaximumHeight(400)
+        self.checkbox_list.setMaximumHeight(400)
 
         isMousetrack = False
         self.mouse_export = QCheckBox("   Export mouse tracking", self)
         self.mouse_export.toggle()
         self.mouse_export.setChecked(isMousetrack)
 
-        #scrollbox.setMaximumHeight(400)
-
         outer_layout.addWidget(self.checkbox_list)
-        hbox1.addWidget(self.mouse_export)
+
+        outer_layout.addWidget(self.mouse_export)
+        outer_layout.addSpacing(200)
 
         outer_layout.addLayout(hbox1)
         hbox1.addLayout(vbox1)
