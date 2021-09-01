@@ -10,6 +10,7 @@ import re
 import os
 import platform
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 from PyQt5 import QtCore
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -46,6 +47,7 @@ bg_matchingness = 0
 mon_ani_ratio = 50
 load_previous = False
 rareness = True
+diff_successive = True
 
 energy_mean = 30 #now in energy_slider_values "stick-point"
 energy = 50
@@ -73,15 +75,23 @@ else:
 # PyQt window
 
 
-class App(QWidget):
-
-    def __init__(self):
-        super().__init__()
+class App(QMainWindow):
+    def __init__(self, parent=None):
+        super(App, self).__init__(parent)
         self.setWindowTitle("Game Settings")
         self.resize(470, 500)
         # Create a top-level layout
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+
+
+        button_action = QAction("&Your button", self)
+        button_action.setStatusTip("This is your button")
+        button_action.setCheckable(True)
+
+
+        self.main_widget = QWidget(self)
+        self.layout = QVBoxLayout(self.main_widget)
+
+
 
         # Create the tab widget with two tabs
         tabs = QTabWidget()
@@ -89,10 +99,9 @@ class App(QWidget):
         tabs.addTab(self.tab2_UI(), "Scoring")
         tabs.addTab(self.tab3_UI(), "Export")
 
-
-        layout.addWidget(tabs)
+        self.layout.addWidget(tabs)
         hlayout = QHBoxLayout()
-        #tabs.setStyleSheet("""background: #E1DFE1""")
+
         # Create a button in the window
         button = QPushButton('Continue', self)
         button.clicked.connect(self.on_click)
@@ -101,9 +110,36 @@ class App(QWidget):
         self.setting_export.toggle()
         self.setting_export.setChecked(load_previous)
 
+        open_action = QAction("open settings", self)
+        open_action.triggered.connect(self.open_settings)
+        save_action = QAction("save settings", self)
+        save_action.triggered.connect(self.save_settings)
+
+
+        menuBar = self.menuBar()
+        fileMenu = menuBar.addMenu('&File')
+        fileMenu.addAction(open_action)
+        fileMenu.addAction(save_action)
+
         hlayout.addWidget(self.setting_export)
         hlayout.addWidget(button)
-        layout.addLayout(hlayout)
+        self.layout.addLayout(hlayout)
+        self.main_widget.setLayout(self.layout)
+        self.setCentralWidget(self.main_widget)
+
+    def open_settings(self):
+        path = QFileDialog.getOpenFileName(self, 'Open a file', '',
+                                        'All Files (*.*)')
+        if path != ('', ''):
+            print("File path : "+ path[0])
+
+    def save_settings(self):
+        name, _ = QFileDialog.getSaveFileName(self, 'Save File')
+        if name != '':
+            file = open(name,'w')
+            text = self.textEdit.toPlainText()
+            file.write(text)
+            file.close()
 
     def tab1_UI(self):
 
@@ -458,9 +494,18 @@ class App(QWidget):
         vbox1 = QVBoxLayout()
         vbox2 = QVBoxLayout()
         vbox3 = QVBoxLayout()
+        top_layout = QFormLayout()
 
         starting_energy_value = energy
         tally_threshold_value = thresh1
+
+        self.successive_diff = QCheckBox("always use different successive targets", self)
+        self.successive_diff.toggle()
+        self.successive_diff.setChecked(diff_successive)
+
+        self.LivesBox = QLineEdit(self)
+        self.onlyInt = QIntValidator()
+        self.LivesBox.setValidator(self.onlyInt)
 
         self.canvas3 = PlotCanvas(self, *energy_slider_values, width=0, height=0)
         self.canvas3.setStyleSheet("""QWidget {background-color:   grey}""")
@@ -511,7 +556,6 @@ class App(QWidget):
         self.min_impact_slider.setMinimum(1)
         self.min_impact_slider.setMaximum(15)
         self.min_impact_slider.setValue(energy_slider_values[2])
-
 
         min_impact_value_label = QLabel('0', self)
         min_impact_value_label.setMinimumWidth(80)
@@ -567,8 +611,9 @@ class App(QWidget):
         self.max_impact_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
         self.tally_theshold_slider.valueChanged.connect(lambda: tally_theshold_value_label.setText(str(self.tally_theshold_slider.value())))
 
-        outer_layout.addWidget(self.canvas3)
+        top_layout.addRow("Number of Lives:", self.LivesBox)
 
+        outer_layout.addWidget(self.canvas3)
 
         vbox1.addWidget(starting_energy_label)
         vbox1.addWidget(self.starting_energy_slider)
@@ -594,12 +639,16 @@ class App(QWidget):
         vbox1.addWidget(self.continuous_energy)
         vbox1.addSpacing(52)
 
+        vbox3.addWidget(self.successive_diff)
         vbox3.addSpacing(100)
+
+
 
         outer_layout.addLayout(hbox1)
         hbox1.addLayout(vbox1)
         hbox1.addLayout(vbox2)
         outer_layout.addLayout(vbox3)
+        outer_layout.addLayout(top_layout)
         tab2.setLayout(outer_layout)
         return tab2
 
