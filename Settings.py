@@ -34,12 +34,12 @@ word_slider_values = [0, 50, 50, 25, 10, 10]
 object_slider_values = [50, 50, 50]
 energy_slider_values = [0, 10, 4, 50]  # empty, max, min, stick-point
 output_checkboxes = pd.DataFrame(
-    [['click_time', True, "'click_time': timestamp for click"], ['elapsed_time', True, "'elapsed_time': time since last response "],
-     ['elapsed_since_correct', True, "'elapsed_since_correct': time since last matching response"], ['target_ref', True, "'object_ref': reference name for target object"],
-     ['score_for_clicked', True, "'score_for_clicked': no. of prior matches for target object"], ['response_ref', True, "'response_ref': reference name for response object"],
-     ['word_category', True, "category of the target label 'word_category'"], ['isRepeat', True, "'isRepeat': was the same target shown for the prior stimulus",],
-     ['isTarget_img', True, "'isTarget_img': did the response match the target"], ['x_position', True, "'x_position': horizontal position of the response click "],
-     ['player_energy', True, "'player_energy': player's energy at time of response"]],
+    [['click_time', True, "'click_time': Timestamp for click"], ['elapsed_time', True, "'elapsed_time': Time since last response "],
+     ['elapsed_since_correct', True, "'elapsed_since_correct': Time since last matching response"], ['target_ref', True, "'object_ref': Reference name for target object"],
+     ['score_for_clicked', True, "'score_for_clicked': No. of prior matches for target object"], ['response_ref', True, "'response_ref': Reference name for response object"],
+     ['word_category', True, "'word_category': Category of the target label"], ['isRepeat', True, "'isRepeat': Was the same target shown for the prior stimulus",],
+     ['isTarget_img', True, "'isTarget_img': Did the response match the target"], ['x_position', True, "'x_position': Horizontal position of the response click "],
+     ['player_energy', True, "'player_energy': Player's energy at time of response"],['user_ID', True, "'user_ID': Tag each response with the user_ID"]],
     columns=pd.Index(['variable_name', 'value', 'label'])
 )
 
@@ -48,6 +48,18 @@ mon_ani_ratio = 50
 load_previous = False
 rareness = True
 diff_successive = True
+isIncrease_scroll = True
+
+max_fps_value = 30
+isLabel_audio = True
+
+isEnergy_overlay = False
+isAnimate_energy = False
+scroll_speed_value = 3
+
+feedback_delay_value = 10
+isFeedback = True
+feedback_random_value = 0
 
 energy_mean = 30 #now in energy_slider_values "stick-point"
 energy = 50
@@ -95,9 +107,10 @@ class App(QMainWindow):
 
         # Create the tab widget with two tabs
         tabs = QTabWidget()
-        tabs.addTab(self.tab1_UI(), "Labels")
-        tabs.addTab(self.tab2_UI(), "Scoring")
-        tabs.addTab(self.tab3_UI(), "Export")
+        tabs.addTab(self.tab1_UI(), "Object Labels")
+        tabs.addTab(self.tab2_UI(), "Gameplay")
+        tabs.addTab(self.tab4_UI(), "Audio/Display")
+        tabs.addTab(self.tab3_UI(), "Outputs")
 
         self.layout.addWidget(tabs)
         hlayout = QHBoxLayout()
@@ -660,6 +673,159 @@ class App(QMainWindow):
         self.canvas3.plot(*weights)
         self.canvas3.draw()
 
+    def tab4_UI(self):
+        tab4 = QWidget()
+        outer_layout = QVBoxLayout()
+        gridlay = QGridLayout()
+
+        # CheckBox Widgets
+
+        self.feedback_check = QCheckBox(" feedback sounds ", self)
+        self.feedback_check.toggle()
+        self.feedback_check.setChecked(isFeedback)
+        #self.feedback_check.setLayoutDirection()
+
+        self.energy_overlay_check = QCheckBox(" low-health vignette overlay  ", self)
+        self.energy_overlay_check.toggle()
+        self.energy_overlay_check.setChecked(isEnergy_overlay)
+
+        self.label_audio_check = QCheckBox(" play audio for stimulus ", self)
+        self.label_audio_check.toggle()
+        self.label_audio_check.setChecked(isLabel_audio)
+
+        self.energy_animate_check = QCheckBox(" animate energy bar ", self)
+        self.energy_animate_check.toggle()
+        self.energy_animate_check.setChecked(isAnimate_energy)
+
+        self.increase_scroll_check = QCheckBox(" gradually increase scroll speed ", self)
+        self.increase_scroll_check.toggle()
+        self.increase_scroll_check.setChecked(isIncrease_scroll)
+
+
+        # Feedback delay widgets
+
+        feedback_delay_label = QLabel('feedback delay', self)
+        feedback_delay_label.setAlignment(Qt.AlignCenter)
+        feedback_delay_label.adjustSize()
+        feedback_delay_label.setToolTip("")
+
+        self.feedback_delay_slider = QSlider(Qt.Horizontal, self)
+        self.feedback_delay_slider.setMinimum(0)
+        self.feedback_delay_slider.setMaximum(100)
+        self.feedback_delay_slider.setValue(feedback_delay_value)
+
+        self.feedback_delay_v_label = QLineEdit('0', self)
+        self.feedback_delay_v_label.setMaximumWidth(30)
+        self.feedback_delay_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.feedback_delay_v_label.setText(str(feedback_delay_value))
+
+        feedback_delay_validator = QIntValidator(0,100)
+        self.feedback_delay_v_label.setValidator(feedback_delay_validator)
+
+        self.feedback_delay_v_label.returnPressed.connect(
+            lambda: self.feedback_delay_slider.setValue(int(self.feedback_delay_v_label.text())))
+        self.feedback_delay_slider.valueChanged.connect(
+            lambda: self.feedback_delay_v_label.setText(str(self.feedback_delay_slider.value())))
+
+
+        # Randomise feedback audio widgets
+
+        feedback_random_label = QLabel('feedback audio randomisation', self)
+        feedback_random_label.setAlignment(Qt.AlignCenter)
+        feedback_random_label.adjustSize()
+        feedback_random_label.setToolTip("")
+
+        self.feedback_random_slider = QSlider(Qt.Horizontal, self)
+        self.feedback_random_slider.setMinimum(0)
+        self.feedback_random_slider.setMaximum(100)
+        self.feedback_random_slider.setValue(feedback_random_value)
+
+        self.feedback_random_v_label = QLineEdit('0', self)
+        self.feedback_random_v_label.setMaximumWidth(30)
+        self.feedback_random_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.feedback_random_v_label.setText(str(feedback_random_value))
+
+        self.feedback_random_v_label.returnPressed.connect(
+            lambda: self.feedback_random_slider.setValue(int(self.feedback_random_v_label.text())))
+        self.feedback_random_slider.valueChanged.connect(
+            lambda: self.feedback_random_v_label.setText(str(self.feedback_random_slider.value())))
+
+        # Scroll speed widgets
+
+        scroll_speed_label = QLabel('scroll speed', self)
+        scroll_speed_label.setAlignment(Qt.AlignCenter)
+        scroll_speed_label.adjustSize()
+        scroll_speed_label.setToolTip("")
+
+        self.scroll_speed_slider = QSlider(Qt.Horizontal, self)
+        self.scroll_speed_slider.setMinimum(0)
+        self.scroll_speed_slider.setMaximum(10)
+        self.scroll_speed_slider.setValue(scroll_speed_value)
+
+        self.scroll_speed_v_label = QLineEdit('0', self)
+        self.scroll_speed_v_label.setMaximumWidth(30)
+        self.scroll_speed_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.scroll_speed_v_label.setText(str(scroll_speed_value))
+
+        self.scroll_speed_v_label.returnPressed.connect(
+            lambda: self.scroll_speed_slider.setValue(int(self.scroll_speed_v_label.text())))
+        self.scroll_speed_slider.valueChanged.connect(
+            lambda: self.scroll_speed_v_label.setText(str(self.scroll_speed_slider.value())))
+
+        # FPS settings widgets
+
+        max_fps_label = QLabel('frames per second', self)
+        max_fps_label.setAlignment(Qt.AlignCenter)
+        max_fps_label.adjustSize()
+        max_fps_label.setToolTip("")
+
+        self.max_fps_slider = QSlider(Qt.Horizontal, self)
+        self.max_fps_slider.setMinimum(20)
+        self.max_fps_slider.setMaximum(100)
+        self.max_fps_slider.setValue(max_fps_value)
+
+        self.max_fps_v_label = QLineEdit('0', self)
+        self.max_fps_v_label.setMaximumWidth(30)
+        self.max_fps_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.max_fps_v_label.setText(str(max_fps_value))
+
+        self.max_fps_v_label.returnPressed.connect(
+            lambda: self.max_fps_slider.setValue(int(self.max_fps_v_label.text())))
+        self.max_fps_slider.valueChanged.connect(
+            lambda: self.max_fps_v_label.setText(str(self.max_fps_slider.value())))
+
+
+        gridlay.addWidget(self.feedback_check, 0, 1, 1, 3)
+
+        gridlay.addWidget(feedback_delay_label, 1, 0, 2, 1)
+        gridlay.addWidget(self.feedback_delay_v_label, 1, 1, 2, 2)
+        gridlay.addWidget(self.feedback_delay_slider, 1, 2, 2, 3)
+
+        gridlay.addWidget(feedback_random_label, 2, 0, 3, 1)
+        gridlay.addWidget(self.feedback_random_v_label, 2, 1, 3, 2)
+        gridlay.addWidget(self.feedback_random_slider, 2, 2, 3, 3)
+
+        gridlay.addWidget(scroll_speed_label, 3, 0, 4, 1)
+        gridlay.addWidget(self.scroll_speed_v_label, 3, 1, 4, 2)
+        gridlay.addWidget(self.scroll_speed_slider, 3, 2, 4, 3)
+
+        gridlay.addWidget(max_fps_label, 4, 0, 5, 1)
+        gridlay.addWidget(self.max_fps_v_label, 4, 1, 5, 2)
+        gridlay.addWidget(self.max_fps_slider, 4, 2, 5, 3)
+
+        gridlay.addWidget(self.energy_overlay_check, 5, 1, 6, 3)
+        gridlay.addWidget(self.label_audio_check, 6, 1, 7, 3)
+        gridlay.addWidget(self.energy_animate_check, 7, 1, 8, 3)
+        gridlay.addWidget(self.increase_scroll_check, 8, 1, 9, 3)
+
+        #vbox1.addWidget(feedback_delay_label)
+        #vbox1.addWidget(self.feedback_delay_slider)
+        #vbox1.addWidget(self.feedback_delay_v_label)
+
+
+        outer_layout.addLayout(gridlay)
+        tab4.setLayout(outer_layout)
+        return tab4
 
     def tab3_UI(self):
         tab3 = QWidget()
