@@ -45,7 +45,7 @@ output_checkboxes = pd.DataFrame(
 
 bg_matchingness = 0
 mon_ani_ratio = 50
-load_previous = False
+load_previous_glob = False
 rareness = True
 diff_successive = True
 isIncrease_scroll = True
@@ -61,21 +61,21 @@ feedback_delay_value = 10
 isFeedback = True
 feedback_random_value = 0
 
-energy_mean = 30 #now in energy_slider_values "stick-point"
-energy = 50
-impact_max = 6 #now in energy_slider_values
-impact_min = 1  #now in energy_slider_values
-Energy_isContinuous = False
+energy_mean_glob = 30 #now in energy_slider_values "stick-point"
+energy_glob = 50
+impact_max_glob = 6 #now in energy_slider_values
+impact_min_glob = 1  #now in energy_slider_values
+isEnergy_linear_glob = False
 
 starting_vocabulary = 3
 
 #Threshold for correct animals clicked at which the image is no longer displayed with the label
-thresh1 = 10
+thresh_glob = 10
 
-export_settings = False
+export_settings_glob = False
 isSurvey = False
 
-id_name = '_'
+id_name_glob = '_'
 
 operating_system = sys.platform
 if operating_system == "darwin":
@@ -192,7 +192,7 @@ class App(QMainWindow):
 
         self.load_creature_bank = QCheckBox("  load creatures and labels \n  from (user ID's) previous session", self)
         self.load_creature_bank.toggle()
-        self.load_creature_bank.setChecked(load_previous)
+        self.load_creature_bank.setChecked(load_previous_glob)
         self.load_creature_bank.setToolTip("Creatures and their labels will be taken \n"
                                            "from the player's previous game. \n"
                                             'Settings for word weights will be ignored ')
@@ -509,8 +509,8 @@ class App(QMainWindow):
         vbox3 = QVBoxLayout()
         top_layout = QFormLayout()
 
-        starting_energy_value = energy
-        tally_threshold_value = thresh1
+        starting_energy_value = energy_glob
+        tally_threshold_value = thresh_glob
 
         self.successive_diff = QCheckBox("always use different successive targets", self)
         self.successive_diff.toggle()
@@ -527,7 +527,7 @@ class App(QMainWindow):
 
         self.continuous_energy = QCheckBox(" linear energy impact ", self)
         self.continuous_energy.toggle()
-        self.continuous_energy.setChecked(Energy_isContinuous)
+        self.continuous_energy.setChecked(isEnergy_linear_glob)
         self.continuous_energy.setToolTip('Positive and negative impacts to energy \n '
                                           'will be equal to the maximum value \n'
                                             'at all levels of player energy.')
@@ -797,32 +797,32 @@ class App(QMainWindow):
 
         gridlay.addWidget(self.feedback_check, 0, 1, 1, 3)
 
-        gridlay.addWidget(feedback_delay_label, 1, 0, 2, 1)
-        gridlay.addWidget(self.feedback_delay_v_label, 1, 1, 2, 2)
-        gridlay.addWidget(self.feedback_delay_slider, 1, 2, 2, 3)
+        gridlay.addWidget(feedback_delay_label, 1, 0, 2, 2)
+        gridlay.addWidget(self.feedback_delay_v_label, 1, 2, 2, 3)
+        gridlay.addWidget(self.feedback_delay_slider, 1, 3, 2, 5)
 
-        gridlay.addWidget(feedback_random_label, 2, 0, 3, 1)
-        gridlay.addWidget(self.feedback_random_v_label, 2, 1, 3, 2)
-        gridlay.addWidget(self.feedback_random_slider, 2, 2, 3, 3)
+        gridlay.addWidget(feedback_random_label, 2, 0, 3, 2)
+        gridlay.addWidget(self.feedback_random_v_label, 2, 2, 3, 3)
+        gridlay.addWidget(self.feedback_random_slider, 2, 3, 3, 5)
 
-        gridlay.addWidget(scroll_speed_label, 3, 0, 4, 1)
-        gridlay.addWidget(self.scroll_speed_v_label, 3, 1, 4, 2)
-        gridlay.addWidget(self.scroll_speed_slider, 3, 2, 4, 3)
+        gridlay.addWidget(scroll_speed_label, 3, 0, 4, 2)
+        gridlay.addWidget(self.scroll_speed_v_label, 3, 2, 4, 3)
+        gridlay.addWidget(self.scroll_speed_slider, 3, 3, 4, 5)
 
-        gridlay.addWidget(max_fps_label, 4, 0, 5, 1)
-        gridlay.addWidget(self.max_fps_v_label, 4, 1, 5, 2)
-        gridlay.addWidget(self.max_fps_slider, 4, 2, 5, 3)
+        gridlay.addWidget(max_fps_label, 4, 0, 5, 2)
+        gridlay.addWidget(self.max_fps_v_label, 4, 2, 5, 3)
+        gridlay.addWidget(self.max_fps_slider, 4, 3, 5, 5)
 
-        gridlay.addWidget(self.energy_overlay_check, 5, 1, 6, 3)
+        gridlay.addWidget(self.increase_scroll_check, 5, 1, 6, 3)
         gridlay.addWidget(self.label_audio_check, 6, 1, 7, 3)
         gridlay.addWidget(self.energy_animate_check, 7, 1, 8, 3)
-        gridlay.addWidget(self.increase_scroll_check, 8, 1, 9, 3)
+        gridlay.addWidget(self.energy_overlay_check, 8, 1, 9, 3)
 
         #vbox1.addWidget(feedback_delay_label)
         #vbox1.addWidget(self.feedback_delay_slider)
         #vbox1.addWidget(self.feedback_delay_v_label)
 
-
+        outer_layout.addSpacing(15)
         outer_layout.addLayout(gridlay)
         tab4.setLayout(outer_layout)
         return tab4
@@ -879,15 +879,15 @@ class App(QMainWindow):
         global four_syl_weight
         global mon_ani_ratio
         global rareness
-        global load_previous
-        global id_name
-        global energy_mean
-        global energy
-        global impact_min
-        global impact_max
-        global Energy_isContinuous
-        global thresh1
-        global export_settings
+        global load_previous_glob
+        global id_name_glob
+        global energy_mean_glob
+        global energy_glob
+        global impact_min_glob
+        global impact_max_glob
+        global isEnergy_linear_glob
+        global thresh_glob
+        global export_settings_glob
         global isMousetrack_glob
         global accepted_glob
         accepted_glob = True
@@ -1011,7 +1011,7 @@ class PlotCanvas(FigureCanvas):
 
 
 
-print(id_name)
+print(id_name_glob)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
