@@ -131,7 +131,7 @@ class App(QMainWindow):
         tabs = QTabWidget()
         tabs.addTab(self.tab1_UI(), "Object Labels")
         tabs.addTab(self.tab2_UI(), "Gameplay")
-        tabs.addTab(self.tab4_UI(), "Audio/Display")
+        tabs.addTab(self.tab4_UI(), "Display/Audio")
         tabs.addTab(self.tab3_UI(), "Outputs")
 
         self.layout.addWidget(tabs)
