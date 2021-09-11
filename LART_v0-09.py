@@ -212,12 +212,17 @@ class App(QMainWindow):
                                             'The player will also be more likely to encounter creatures \n '
                                                 'with simpler labels at the start of the game.')
 
-        self.load_creature_bank = QCheckBox("  load creatures and labels \n  from (user ID's) previous session", self)
-        self.load_creature_bank.toggle()
-        self.load_creature_bank.setChecked(load_previous)
-        self.load_creature_bank.setToolTip("Creatures and their labels will be taken \n"
+        self.prior_word_set_box = QCheckBox("  load creatures and labels \n  from (user ID's) previous session", self)
+        self.prior_word_set_box.toggle()
+        self.prior_word_set_box.setChecked(load_previous)
+        self.prior_word_set_box.setToolTip("Creatures and their labels will be taken \n"
                                            "from the player's previous game. \n"
                                             'Settings for word weights will be ignored ')
+
+        self.fixed_labels_box = QCheckBox("  use fixed object labels ", self)
+        self.fixed_labels_box.toggle()
+        self.fixed_labels_box.setChecked(load_previous)
+        self.fixed_labels_box.setToolTip(" ")
 
         self.wrd1_slider = QSlider(Qt.Horizontal, self)
         self.wrd1_slider.setValue(word_slider_values[0])
@@ -517,9 +522,11 @@ class App(QMainWindow):
         vbox4.addWidget(start_vocab_v_label)
         vbox4.addSpacing(10)
 
+        vbox4.addWidget(self.fixed_labels_box)
+        vbox4.addSpacing(15)
         vbox4.addWidget(self.rareness_ordering)
         vbox4.addSpacing(15)
-        vbox4.addWidget(self.load_creature_bank)
+        vbox4.addWidget(self.prior_word_set_box)
 
         # Set Style Sheets
         #self.wrd1_slider.setStyleSheet("""QSlider::handle:horizontal { background: blue; border-radius: 10px; }""")
@@ -575,8 +582,6 @@ class App(QMainWindow):
         vbox2 = QVBoxLayout()
         vbox3 = QVBoxLayout()
         top_layout = QFormLayout()
-
-
 
         self.successive_diff = QCheckBox("always use different successive targets", self)
         self.successive_diff.toggle()
@@ -966,19 +971,24 @@ class App(QMainWindow):
         impact_min = self.min_impact_slider.value()
         energy_mean = self.stick_point_slider.value()
 
+        scroll_speed_value = self.scroll_speed_slider.value()
         id_name = self.IDtextbox.text()
         energy = self.starting_energy_slider.value()
         starting_vocabulary = self.start_vocab_slider.value()
         thresh = self.tally_theshold_slider.value()
-        isEnergy_linear = self.continuous_energy.isChecked()
+        fps = self.max_fps_slider.value()
+
+
         lives = -1
         if int(self.LivesBox.text()) > 0:
             lives = int(self.LivesBox.text())
             print(lives)
-        load_previous = self.load_creature_bank.isChecked()
+        load_previous = self.prior_word_set_box.isChecked()
         isMousetrack = self.mouse_export.isChecked()
         rareness = self.rareness_ordering.isChecked()
-        fps = self.max_fps_slider.value()
+        isFixed = self.prior_word_set_box.isChecked()
+        isEnergy_linear = self.continuous_energy.isChecked()
+
 
         # Export settings to pkl for main program
         with open(os.path.join(dir_path, 'data/current_settings.pkl'), 'wb') as f:
@@ -1002,6 +1012,8 @@ class App(QMainWindow):
                          rareness,
                          fps,
                          increase_scroll,
+                         isFixed,
+                         scroll_speed_value,
                          ], f)
 
         self.close()
@@ -1106,7 +1118,7 @@ if __name__ == '__main__':
 with open(os.path.join(dir_path, 'data/current_settings.pkl'), 'rb') as f:
     word_slider_values, energy_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
     output_checkboxes, object_slider_values, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-    thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll = pickle.load(f)
+    thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value = pickle.load(f)
 
 #export settings for data survey file
 if export_settings_glob:
@@ -1131,6 +1143,8 @@ if export_settings_glob:
                      isMousetrack,
                      rareness,
                      increase_scroll,
+                     isFixed,
+                     scroll_speed_value,
                      ], f)
 
 
@@ -1138,7 +1152,7 @@ if isSurvey:
     with open(os.path.join(dir_path, 'data/survey_settings.pkl'), 'rb') as f:
         word_slider_values, energy_slider_values, object_slider_values, energy_mean, impact_max, impact_min, output_checkboxes, \
         object_slider_values, id_name, lives, starting_vocabulary, bg_matchingness, energy, thresh, isEnergy_linear, \
-        load_previous, isMousetrack, rareness, increase_scroll, fps = pickle.load(
+        load_previous, isMousetrack, rareness, increase_scroll, fps, isFixed, scroll_speed_value = pickle.load(
             f)
 
 #quit on 'x' in settings
@@ -1174,7 +1188,7 @@ object_type = []
 objectY = []
 objectX = []
 start_time = []
-objectY_change = scroll_speed_value
+objectY_change = scroll_speed_value / (fps / 30)
 current_vocab_size = starting_vocabulary
 new_start_time = 0
 weight_by_complexity = []
@@ -1202,22 +1216,29 @@ def labels_shuffle(list1, list2, list3, list4, list5, list6, weight1, weight2, w
     random.shuffle(returnlist)
     return returnlist
 
-def objects_shuffle1(list1, list2, list3, weight1, weight2, weight3, length):
-    weightslist = random.choices([1,2,3], weights=(weight1, weight2, weight3), k=length)
-    newlist1 = random.sample(list1, weightslist.count(1))
-    newlist2 = random.sample(list2, weightslist.count(2))
-    newlist3 = random.sample(list3, weightslist.count(3))
-    returnlist = newlist1 + newlist2 + newlist3
+def objects_shuffle1(pd_data, categories, object_category_weights, length):
+    returnlist = []
+    weights = []
+    for i in categories:
+        weights.append(object_category_weights[i])
+
+    weightslist = random.choices(categories, weights=weights, k=length)
+    for i in categories:
+        shufflelist = pd_data[["animal_ID", "ID_numeric"]].loc[pd_data["is_monster"] == i][0:length].values.tolist()
+        appendlist = random.sample(shufflelist, weightslist.count(i))
+        for element in appendlist:
+            returnlist.append(element)
+
     return returnlist
 
-def objects_shuffle(list1, list2, weight1, length):
-    weight2 = 100 - weight1
-    weightslist = random.choices([1,2], weights=(weight1, weight2), k=length)
-    newlist1 = random.sample(list1, weightslist.count(1))
-    newlist2 = random.sample(list2, weightslist.count(2))
-    returnlist = newlist1 + newlist2
-    random.shuffle(returnlist)
-    return returnlist
+#def objects_shuffle(list1, list2, weight1, length):
+#    weight2 = 100 - weight1
+#    weightslist = random.choices([1,2], weights=(weight1, weight2), k=length)
+#    newlist1 = random.sample(list1, weightslist.count(1))
+#    newlist2 = random.sample(list2, weightslist.count(2))
+#    returnlist = newlist1 + newlist2
+#    random.shuffle(returnlist)
+#    return returnlist
 
 def sort_with_error(list_to_sort, error):
     errorsList = []
@@ -1287,6 +1308,7 @@ else:
 
     # load animal information to lists from input data
     obj_cat_list = list(inputData['is_monster'])
+    obj_cat_uniq = list(set(obj_cat_list))
     obj_cat_num_uniq = len(set(obj_cat_list))
     obj_cat_least_item = min(set(obj_cat_list))
     animalDict_range = obj_cat_list.count(obj_cat_least_item) # maximum list length that will allow for random shuffle
@@ -1299,16 +1321,21 @@ else:
     #else:
     #    animalDict_range = isMonster_count.count(1)
 
-    monsters_index_no = obj_cat_list.count(1)
-    animals_index_no = obj_cat_list.count(0)
-    earthAnimals_names = inputData['animal_ID'][0:animals_index_no].tolist()
-    earthAnimals_numbers = inputData['ID_numeric'][0:animals_index_no].tolist()
-    earthAnimals = list(zip(earthAnimals_names, earthAnimals_numbers))
-    monsterAnimals_names = inputData['animal_ID'][animals_index_no:monsters_index_no].tolist()
-    monsterAnimals_numbers = inputData['ID_numeric'][animals_index_no:monsters_index_no].tolist()
-    monsterAnimals = list(zip(monsterAnimals_names, monsterAnimals_numbers))
 
-    animal_weighted_list = objects_shuffle(earthAnimals, monsterAnimals, mon_ani_ratio, animals_index_no)
+    #print(type(inputData))
+
+    #monsters_index_no = obj_cat_list.count(1)
+    #animals_index_no = obj_cat_list.count(0)
+    #earthAnimals_names = inputData['animal_ID'][0:animals_index_no].tolist()
+    #earthAnimals_numbers = inputData['ID_numeric'][0:animals_index_no].tolist()
+    #earthAnimals = list(zip(earthAnimals_names, earthAnimals_numbers))
+    #monsterAnimals_names = inputData['animal_ID'][animals_index_no:monsters_index_no].tolist()
+    #monsterAnimals_numbers = inputData['ID_numeric'][animals_index_no:monsters_index_no].tolist()
+    #monsterAnimals = list(zip(monsterAnimals_names, monsterAnimals_numbers))
+
+    #animal_weighted_list = objects_shuffle(earthAnimals, monsterAnimals, mon_ani_ratio, animals_index_no)
+    animal_weighted_list = objects_shuffle1(inputData, obj_cat_uniq, object_slider_values, animalDict_range)
+
     animal_randomiser = random.sample(range(animalDict_range), animalDict_range) #creates a shuffled list with every integer between a range appearing once
 
     # create animal dictionary from lists
@@ -1368,7 +1395,7 @@ targetX = 720
 targetY = 520
 
 #fps
-fps = 60
+#fps = 60
 
  #sound mixer
 mixer.init()
