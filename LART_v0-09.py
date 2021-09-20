@@ -1203,7 +1203,7 @@ weight_by_complexity = []
 score_value = 0
 
 # check for repeated target variables
-target_type_old = 0
+target_type_previous = -1
 isRepeat = 0
 
 # variable for recording if target image is displayed
@@ -1564,7 +1564,10 @@ for i in range(max_animals):
     objectX[i], objectY[i] = get_new_randXY(max_animals)
 
 
-new_start_time = time.time() #sets stimulus time
+new_start_time  = time.time() #sets stimulus time
+last_recorded_click_time = new_start_time
+clicked = False
+last_output_click = -1
 
 # Game loop
 
@@ -1587,6 +1590,7 @@ while running:
                     saved_target_type = target_type
                     saved_x = objectX[i]
                     saved_energy = energy
+                    clicked_time = time.time()
 
                     # if correct animal increase score, print to CSV and change target type and respawn animal
                     if object_type[i] == target_type:
@@ -1597,7 +1601,7 @@ while running:
                         # respawn clicked object and create new target
                         object_type[i] = weighted_type_select(current_vocab_size, target_type, False)
                         target_type_previous = target_type #note target type before changing
-                        target_type = weighted_type_select(current_vocab_size, target_type_old, True)
+                        target_type = weighted_type_select(current_vocab_size, target_type_previous, True)
 
                         # record if the target type is the same as the last one
                         if target_type == target_type_previous:
@@ -1647,29 +1651,37 @@ while running:
 
                     #if start_time[i] != 0:
                     #    # output to CSV
-                    csv_new_line = [round(time.time() - new_start_time, 4),
-                                    int(isCorrect),
-                                    str(objectDict["label"][saved_target_type]),
-                                    objectDict["type_score"][saved_target_type],
-                                    objectDict["label_complexity"][saved_target_type],
-                                    objectDict["is_monster"][saved_target_type],
-                                    str(objectDict["label"][clicked_type]),
-                                    objectDict["type_score"][clicked_type],
-                                    objectDict["label_complexity"][clicked_type],
-                                    objectDict["is_monster"][clicked_type],
-                                    isRepeat, isTarget_img,
-                                    (WINDOW_SIZE[0] / 2 - saved_x),
-                                    round(saved_energy, 1)]
-                    csv_output.append(csv_new_line)
+                    if isCorrect or i != last_output_click or last_recorded_click_time - clicked_time > 2: #makes sure there's nothing recorded when player repeatedly clicks the same wrong answer
+                        last_output_click = i
+                        last_recorded_click_time = time.time()
+                        csv_new_line = [round(time.time() - new_start_time, 4),
+                                        int(isCorrect),
+                                        str(objectDict["label"][saved_target_type]),
+                                        objectDict["type_score"][saved_target_type],
+                                        objectDict["label_complexity"][saved_target_type],
+                                        objectDict["is_monster"][saved_target_type],
+                                        str(objectDict["label"][clicked_type]),
+                                        objectDict["type_score"][clicked_type],
+                                        objectDict["label_complexity"][clicked_type],
+                                        objectDict["is_monster"][clicked_type],
+                                        isRepeat, isTarget_img,
+                                        (WINDOW_SIZE[0] / 2 - saved_x),
+                                        round(saved_energy, 1)]
+                        csv_output.append(csv_new_line)
+
+                        if isCorrect:
+                            new_start_time = time.time()
+
+                        if isMousetrack:
+                            write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
+                        mouse_tracking_file_number = mouse_tracking_file_number + 1
+                        mouse_tracking.clear()
+
+                    clicked = False
+                    isCorrect = False
+
 
                     # resets the time marking presentation of stimulus
-                    if isCorrect:
-                        new_start_time = time.time()
-
-                    if isMousetrack:
-                        write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
-                    mouse_tracking_file_number = mouse_tracking_file_number + 1
-                    mouse_tracking.clear()
 
 
     # Background
