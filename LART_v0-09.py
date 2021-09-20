@@ -1387,12 +1387,18 @@ scheduler = True
 
 # csv array and elements
 csv_output = []
-csv_new_line = ["click_time",
-                "animal_type",
-                "score_for_type",
-                "word_complexity",
+csv_new_line = ["since_stimulus",
+                "isMatch",
+                "target_label",
+                "score_for_target",
+                "target_word_category",
+                "target_object_category",
+                "clicked_label",
+                "score_for_clicked",
+                "clicked_word_category",
+                "clicked_object_category",
                 "isRepeat",
-                "isTarget_img",
+                "isDisplayed",
                 "x_position",
                 "player_energy"]  # column labels for .csv header
 csv_output.append(csv_new_line)
@@ -1558,10 +1564,9 @@ for i in range(max_animals):
     objectX[i], objectY[i] = get_new_randXY(max_animals)
 
 
+new_start_time = time.time() #sets stimulus time
 
 # Game loop
-
-
 
 while running:
 
@@ -1577,31 +1582,25 @@ while running:
             for i in range(objects_on_screen):
                 clicked = isClicked(objectX[i], objectY[i], *pos)
                 if clicked:
+                    #save states of variables at time of click for output.csv
+                    clicked_type = object_type[i]
+                    saved_target_type = target_type
+                    saved_x = objectX[i]
+                    saved_energy = energy
+
                     # if correct animal increase score, print to CSV and change target type and respawn animal
                     if object_type[i] == target_type:
                         isCorrect = True
-
                         energy = calculate_energy(energy, energy_mean, isEnergy_linear, impact_max, impact_min)
-
-                        # record how long the clicked target had been displayed since target was last established
-                        new_start_time = time.time()
-                        if start_time[i] != 0:
-                            # output to CSV
-                            csv_new_line = [round(time.time() - start_time[i], 4),
-                                            str(objectDict["label"][target_type]),
-                                            objectDict['type_score'][target_type],
-                                            objectDict["label_complexity"][target_type],
-                                            isRepeat, isTarget_img,
-                                            (WINDOW_SIZE[0] / 2 - objectX[i]),
-                                            round(energy, 1)]
-                            csv_output.append(csv_new_line)
-
                         score_value += 1
+
+                        # respawn clicked object and create new target
                         object_type[i] = weighted_type_select(current_vocab_size, target_type, False)
-                        target_type_old = target_type
+                        target_type_previous = target_type #note target type before changing
                         target_type = weighted_type_select(current_vocab_size, target_type_old, True)
+
                         # record if the target type is the same as the last one
-                        if target_type == target_type_old:
+                        if target_type == target_type_previous:
                             isRepeat = 1
                         else:
                             isRepeat = 0
@@ -1645,6 +1644,27 @@ while running:
                         lives -= 1
                         energy = calculate_energy(energy, energy_mean, isEnergy_linear, -impact_max, -impact_min) # change energy level
                         isCorrect = False
+
+                    #if start_time[i] != 0:
+                    #    # output to CSV
+                    csv_new_line = [round(time.time() - new_start_time, 4),
+                                    int(isCorrect),
+                                    str(objectDict["label"][saved_target_type]),
+                                    objectDict["type_score"][saved_target_type],
+                                    objectDict["label_complexity"][saved_target_type],
+                                    objectDict["is_monster"][saved_target_type],
+                                    str(objectDict["label"][clicked_type]),
+                                    objectDict["type_score"][clicked_type],
+                                    objectDict["label_complexity"][clicked_type],
+                                    objectDict["is_monster"][clicked_type],
+                                    isRepeat, isTarget_img,
+                                    (WINDOW_SIZE[0] / 2 - saved_x),
+                                    round(saved_energy, 1)]
+                    csv_output.append(csv_new_line)
+
+                    # resets the time marking presentation of stimulus
+                    if isCorrect:
+                        new_start_time = time.time()
 
                     if isMousetrack:
                         write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
