@@ -701,13 +701,14 @@ class App(QMainWindow):
 
         outer_layout.addWidget(self.canvas3)
 
+        vbox1.addSpacing(15)
         vbox1.addWidget(starting_energy_label)
         vbox1.addWidget(self.starting_energy_slider)
         vbox1.addWidget(starting_energy_value_label)
 
-        vbox1.addWidget(stick_point_label)
-        vbox1.addWidget(self.stick_point_slider)
-        vbox1.addWidget(stick_point_value_label)
+        vbox2.addWidget(stick_point_label)
+        vbox2.addWidget(self.stick_point_slider)
+        vbox2.addWidget(stick_point_value_label)
 
         vbox2.addWidget(min_impact_label)
         vbox2.addWidget(self.min_impact_slider)
@@ -717,9 +718,10 @@ class App(QMainWindow):
         vbox2.addWidget(self.max_impact_slider)
         vbox2.addWidget(max_impact_value_label)
 
-        vbox2.addWidget(tally_theshold_label)
-        vbox2.addWidget(self.tally_theshold_slider)
-        vbox2.addWidget(tally_theshold_value_label)
+        vbox1.addSpacing(15)
+        vbox1.addWidget(tally_theshold_label)
+        vbox1.addWidget(self.tally_theshold_slider)
+        vbox1.addWidget(tally_theshold_value_label)
 
         vbox1.addSpacing(52)
         vbox1.addWidget(self.continuous_energy)
@@ -982,12 +984,13 @@ class App(QMainWindow):
         lives = -1
         if int(self.LivesBox.text()) > 0:
             lives = int(self.LivesBox.text())
-            print(lives)
         load_previous = self.prior_word_set_box.isChecked()
         isMousetrack = self.mouse_export.isChecked()
         rareness = self.rareness_ordering.isChecked()
         isFixed = self.prior_word_set_box.isChecked()
         isEnergy_linear = self.continuous_energy.isChecked()
+        diff_successive = self.successive_diff.isChecked()
+
 
 
         # Export settings to pkl for main program
@@ -1014,6 +1017,7 @@ class App(QMainWindow):
                          increase_scroll,
                          isFixed,
                          scroll_speed_value,
+                         diff_successive
                          ], f)
 
         self.close()
@@ -1118,7 +1122,8 @@ if __name__ == '__main__':
 with open(os.path.join(dir_path, 'data/current_settings.pkl'), 'rb') as f:
     word_slider_values, energy_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
     output_checkboxes, object_slider_values, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-    thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value = pickle.load(f)
+    thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
+    diff_successive = pickle.load(f)
 
 #export settings for data survey file
 if export_settings_glob:
@@ -1145,6 +1150,7 @@ if export_settings_glob:
                      increase_scroll,
                      isFixed,
                      scroll_speed_value,
+                     diff_successive
                      ], f)
 
 
@@ -1152,7 +1158,7 @@ if isSurvey:
     with open(os.path.join(dir_path, 'data/survey_settings.pkl'), 'rb') as f:
         word_slider_values, energy_slider_values, object_slider_values, energy_mean, impact_max, impact_min, output_checkboxes, \
         object_slider_values, id_name, lives, starting_vocabulary, bg_matchingness, energy, thresh, isEnergy_linear, \
-        load_previous, isMousetrack, rareness, increase_scroll, fps, isFixed, scroll_speed_value = pickle.load(
+        load_previous, isMousetrack, rareness, increase_scroll, fps, isFixed, scroll_speed_value, diff_successive = pickle.load(
             f)
 
 #quit on 'x' in settings
@@ -1231,14 +1237,6 @@ def objects_shuffle1(pd_data, categories, object_category_weights, length):
 
     return returnlist
 
-#def objects_shuffle(list1, list2, weight1, length):
-#    weight2 = 100 - weight1
-#    weightslist = random.choices([1,2], weights=(weight1, weight2), k=length)
-#    newlist1 = random.sample(list1, weightslist.count(1))
-#    newlist2 = random.sample(list2, weightslist.count(2))
-#    returnlist = newlist1 + newlist2
-#    random.shuffle(returnlist)
-#    return returnlist
 
 def sort_with_error(list_to_sort, error):
     errorsList = []
@@ -1313,27 +1311,6 @@ else:
     obj_cat_least_item = min(set(obj_cat_list))
     animalDict_range = obj_cat_list.count(obj_cat_least_item) # maximum list length that will allow for random shuffle
 
-
-
-    #isMonster_count = list(inputData['is_monster'])
-    #if isMonster_count.count(0) <= isMonster_count.count(1): # maximum list length that will allow for random shuffle
-    #    animalDict_range = isMonster_count.count(0)
-    #else:
-    #    animalDict_range = isMonster_count.count(1)
-
-
-    #print(type(inputData))
-
-    #monsters_index_no = obj_cat_list.count(1)
-    #animals_index_no = obj_cat_list.count(0)
-    #earthAnimals_names = inputData['animal_ID'][0:animals_index_no].tolist()
-    #earthAnimals_numbers = inputData['ID_numeric'][0:animals_index_no].tolist()
-    #earthAnimals = list(zip(earthAnimals_names, earthAnimals_numbers))
-    #monsterAnimals_names = inputData['animal_ID'][animals_index_no:monsters_index_no].tolist()
-    #monsterAnimals_numbers = inputData['ID_numeric'][animals_index_no:monsters_index_no].tolist()
-    #monsterAnimals = list(zip(monsterAnimals_names, monsterAnimals_numbers))
-
-    #animal_weighted_list = objects_shuffle(earthAnimals, monsterAnimals, mon_ani_ratio, animals_index_no)
     animal_weighted_list = objects_shuffle1(inputData, obj_cat_uniq, object_slider_values, animalDict_range)
 
     animal_randomiser = random.sample(range(animalDict_range), animalDict_range) #creates a shuffled list with every integer between a range appearing once
@@ -1355,7 +1332,8 @@ else:
         objectDict["label_complexity"].append(word_complexity)
 
 
-print(objectDict)
+#pd_objectDict = pd.DataFrame.from_dict(objectDict) # Create dataframe from dictionary
+#pd.set_option("display.max_columns", 100)
 
 # assign animal parameters to on screen array
 
@@ -1438,18 +1416,27 @@ def isClicked(animalX,animalY, clickX, clickY):
     else:
         return False
 
-def weighted_type_select(varietyRange):
-    if rareness:
-        isNew_object = False
-        while isNew_object == False:
-            random_selector = random.randint(1,varietyRange)
-            randomThresh = random.randint(0,6)
-            if randomThresh - objectDict["label_complexity"][random_selector] >= 0:
-                new_object = random_selector
-                isNew_object = True
-        return new_object
+
+def weighted_type_select(varietyRange, target_number, generate_target):
+    weights = list(objectDict["label_complexity"][0:varietyRange])
+    population = list(range(varietyRange))
+    min_weights = min(weights)
+    max_weights = max(weights)
+    weights = np.add(weights, -min_weights + 1)
+    weights = np.divide(weights, max_weights)
+    weights = np.add(1, -weights)
+
+    if diff_successive and generate_target:
+        new_type = target_number
+        while new_type == target_number:
+            new_type_list = random.choices(population=population, weights=weights, k=1)
+            new_type = new_type_list[0]
     else:
-        return random.randint(1, varietyRange)
+        new_type_list = random.choices(population=population, weights=weights, k=1)
+        new_type = new_type_list[0]
+    return new_type
+
+
 
 def draw_object_name(x, y, i):
     level = font.render(" name : " + str(objectDict["label"][i]), True, (255, 255, 255))
@@ -1492,7 +1479,6 @@ def write_mouse_epoch(correct, username, epoch_number, track_arr):
             writer.writerows(track_arr)
 
 def save_obj_labels(object_dict):
-    print(object_dict)
     csv_file = str(id_name) + '_' + "object_label_data.csv"
     # header = ['ID_numeric','filepath', 'loadImg','type_score', 'label', 'label_complexity', 'is_monster']
     try:
@@ -1583,7 +1569,6 @@ while running:
         if event.type == pygame.QUIT:
             write_csv(csv_output)
             save_obj_labels(objectDict)
-            print(csv_output)
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -1601,8 +1586,6 @@ while running:
                         # record how long the clicked target had been displayed since target was last established
                         new_start_time = time.time()
                         if start_time[i] != 0:
-                            print(time.time() - start_time[i])
-
                             # output to CSV
                             csv_new_line = [round(time.time() - start_time[i], 4),
                                             str(objectDict["label"][target_type]),
@@ -1613,10 +1596,10 @@ while running:
                                             round(energy, 1)]
                             csv_output.append(csv_new_line)
 
-                        score_value +=1
-                        object_type[i] = weighted_type_select(current_vocab_size)
+                        score_value += 1
+                        object_type[i] = weighted_type_select(current_vocab_size, target_type, False)
                         target_type_old = target_type
-                        target_type = weighted_type_select(current_vocab_size)
+                        target_type = weighted_type_select(current_vocab_size, target_type_old, True)
                         # record if the target type is the same as the last one
                         if target_type == target_type_old:
                             isRepeat = 1
@@ -1652,7 +1635,7 @@ while running:
                         # check threshold for type for level up
                         if objectDict['type_score'][target_type] == thresh:
                             # increase animal types shown(only if within array size)
-                            if current_vocab_size < (inputData["animal_ID"].count() - 1):
+                            if current_vocab_size < (animalDict_range - 1):
                                 current_vocab_size += 1
 
                         scheduler = True
@@ -1681,7 +1664,7 @@ while running:
         objectY[i] += objectY_change
         #animal goes off bottom of screen
         if objectY[i] >= 600:
-            object_type[i] = weighted_type_select(current_vocab_size)
+            object_type[i] = weighted_type_select(current_vocab_size, target_type, False)
             objectX[i], objectY[i] = get_new_randXY(objects_on_screen)
             start_time[i] = 0
         if objectY[i] >= -5 and objectY[i] < 5:
