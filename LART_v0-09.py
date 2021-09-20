@@ -1251,7 +1251,8 @@ def sort_with_error(list_to_sort, error):
 if load_previous:
     try:
         prev_data = pd.read_csv(os.path.join(dir_path, "data/saved_game_states/", str(id_name) + '_' + 'object_label_data.csv'))
-        for i in range(len(list(prev_data))):
+        animalDict_range = len(list(prev_data))
+        for i in range(animalDict_range):
             objectDict["filepath"].append(prev_data["filepath"][i])
             objectDict['ID_numeric'].append(prev_data["ID_numeric"][i])
             objectImg_path = str(objectDict["filepath"][i])
@@ -1260,8 +1261,10 @@ if load_previous:
             objectDict['is_monster'].append(prev_data['is_monster'][i])
             objectDict['label'].append(prev_data['label'][i])
             objectDict["label_complexity"].append(prev_data['label_complexity'][i])
+
     except OSError():
         print("Cannot find previous settings, running using defaults")
+
 
 else:
     # combine word lists and complexity from input data
@@ -1301,8 +1304,7 @@ else:
     if rareness:
         wordlist_category_weights = sort_with_error(combined_word_list, 2)
     else:
-        random.shuffle(combined_word_list)
-        wordlist_category_weights = combined_word_list
+        wordlist_category_weights = sort_with_error(combined_word_list, 100)
 
     # load animal information to lists from input data
     obj_cat_list = list(inputData['is_monster'])
@@ -1431,15 +1433,22 @@ def weighted_type_select(varietyRange, target_number, generate_target):
     weights = np.add(weights, -min_weights + 1)
     weights = np.divide(weights, max_weights)
     weights = np.add(1, -weights)
-
-    if diff_successive and generate_target:
-        new_type = target_number
-        while new_type == target_number:
+    if rareness:
+        if diff_successive and generate_target:
+            new_type = target_number
+            while new_type == target_number:
+                new_type_list = random.choices(population=population, weights=weights, k=1)
+                new_type = new_type_list[0]
+        else:
             new_type_list = random.choices(population=population, weights=weights, k=1)
             new_type = new_type_list[0]
     else:
-        new_type_list = random.choices(population=population, weights=weights, k=1)
-        new_type = new_type_list[0]
+        if diff_successive and generate_target:
+            new_type = target_number
+            while new_type == target_number:
+                new_type = random.choice(range(0, varietyRange))
+        else:
+            new_type = random.choice(range(0, varietyRange))
     return new_type
 
 
