@@ -18,18 +18,37 @@ import platform
 from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
     QApplication, QWidget, QPushButton, QMessageBox, QHBoxLayout, \
     QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox, QGridLayout, \
-    QListWidget, QListWidgetItem
+    QListWidget, QListWidgetItem, QFileDialog, qApp
 from PyQt5.QtGui import QIntValidator
-from PyQt5.QtCore import pyqtSlot, Qt
+from PyQt5.QtCore import pyqtSlot, Qt, QCoreApplication
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 
 
-# default settings
+operating_system = sys.platform
+if operating_system == "darwin":
+    dir_path = os.path.sep.join(sys.argv[0].split(os.path.sep)[:-1])
+else:
+    dir_path = os.getcwd()
+
+
+
+# default settings paths
+settings_default_path = os.path.join(dir_path, 'data/current_settings.pkl')
+
+isEnergy_overlay = False
+isAnimate_energy = False
+feedback_delay_value = 10
+isFeedback = True
+feedback_random_value = 0
+export_settings_glob = False
+
+#create default settings and save out to file
+
 word_slider_values = [0, 50, 50, 25, 10, 10]
 object_slider_values = [50, 50, 50]
-
 
 output_checkboxes = pd.DataFrame(
     [['click_time', True, "'click_time': Timestamp for click"], ['since_last_click', True, "'since_last_click': Time since last response click "],
@@ -44,27 +63,12 @@ output_checkboxes = pd.DataFrame(
     columns=pd.Index(['variable_name', 'value', 'label'])
 )
 
-# legacy attributes (two_letter, two_syl etc)
-two_letter_weight = word_slider_values[0]
-one_syl_weight = word_slider_values[1]
-two_syl_weight = word_slider_values[2]
-two_syl_long_weight = word_slider_values[3]
-three_syl_weight = word_slider_values[4]
-four_syl_weight = word_slider_values[5]
-
 id_name = '_'
-
 energy = 50
-
-impact_max = 6 #now in energy_slider_values
-impact_min = 1  #now in energy_slider_values
-energy_mean = 30 #now in energy_slider_values "stick-point"
-energy_slider_values = [0, impact_max, impact_min, energy_mean]  # empty, max, min, stick-point
-
+impact_max = 6
+impact_min = 1
+energy_mean = 30 #"stick-point"
 isEnergy_linear = False
-
-
-mon_ani_ratio = 50
 load_previous = False
 rareness = True
 diff_successive = True
@@ -74,58 +78,116 @@ starting_vocabulary = 3
 isSurvey = False
 fps = 30
 isLabel_audio = True
-isEnergy_overlay = False
-isAnimate_energy = False
 scroll_speed_value = 3
-feedback_delay_value = 10
-isFeedback = True
-feedback_random_value = 0
 bg_matchingness = 0
 isMousetrack = False
-export_settings_glob = False
 lives = -1
+isFixed = True
+
+def pickle_load_settings(file_path):
+    with open(file_path, 'rb') as f:
+        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
+        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
+        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
+        diff_successive, isSurvey, isLabel_audio = pickle.load(f)
 
 
+        print("word weights inside function: " + str(word_slider_values))
 
-#Legacy Globals
-#load_previous_glob = False
-#energy_mean_glob = 30 #now in energy_slider_values "stick-point"
-#energy_glob = 50
-#impact_max_glob = 6 #now in energy_slider_values
-#impact_min_glob = 1  #now in energy_slider_values
-#isEnergy_linear_glob = False
-#thresh_glob = 10 #Threshold for correct animals clicked at which the image is no longer displayed with the label
-#id_name_glob = '_'
+def pickle_load_and_save_settings(file_path):
+    with open(file_path, 'rb') as f:
+        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
+        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
+        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
+        diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+
+        with open(settings_default_path, 'wb') as f:
+            pickle.dump([word_slider_values,
+                         object_slider_values,
+                         energy_mean,
+                         impact_max,
+                         impact_min,
+                         output_checkboxes,
+                         id_name,
+                         lives,
+                         starting_vocabulary,
+                         bg_matchingness,
+                         energy,
+                         thresh,
+                         isEnergy_linear,
+                         load_previous,
+                         isMousetrack,
+                         rareness,
+                         fps,
+                         increase_scroll,
+                         isFixed,
+                         scroll_speed_value,
+                         diff_successive,
+                         isSurvey,
+                         isLabel_audio
+                         ], f)
 
 
+def pickle_save_settings(file_path):
+    with open(file_path, 'wb') as f:
+        pickle.dump([word_slider_values,
+                     object_slider_values,
+                     energy_mean,
+                     impact_max,
+                     impact_min,
+                     output_checkboxes,
+                     id_name,
+                     lives,
+                     starting_vocabulary,
+                     bg_matchingness,
+                     energy,
+                     thresh,
+                     isEnergy_linear,
+                     load_previous,
+                     isMousetrack,
+                     rareness,
+                     fps,
+                     increase_scroll,
+                     isFixed,
+                     scroll_speed_value,
+                     diff_successive,
+                     isSurvey,
+                     isLabel_audio
+                     ], f)
 
-operating_system = sys.platform
-if operating_system == "darwin":
-    dir_path = os.path.sep.join(sys.argv[0].split(os.path.sep)[:-1])
+
+if not os.path.isfile(settings_default_path):
+    print("file not found")
+    pickle_save_settings(settings_default_path)
 else:
-    dir_path = os.getcwd()
+    try:
+        with open(settings_default_path, 'rb') as f:
+            word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
+            output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
+            thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
+            diff_successive, isSurvey, isLabel_audio = pickle.load(f)
 
-# PyQt window
-
+        print("file found")
+        print("word weights: " + str(word_slider_values))
+    except IOError:
+        print("could not load latest settings")
+        pickle_save_settings(settings_default_path)
 
 
 class App(QMainWindow):
+    EXIT_CODE_REBOOT = -7654321
     def __init__(self, parent=None):
         super(App, self).__init__(parent)
         self.setWindowTitle("Game Settings")
         self.resize(470, 500)
         # Create a top-level layout
 
-
         button_action = QAction("&Your button", self)
         button_action.setStatusTip("This is your button")
         button_action.setCheckable(True)
 
-
         self.main_widget = QWidget(self)
         self.layout = QVBoxLayout(self.main_widget)
-
-
 
         # Create the tab widget with two tabs
         tabs = QTabWidget()
@@ -139,7 +201,7 @@ class App(QMainWindow):
 
         # Create a button in the window
         button = QPushButton('Continue', self)
-        button.clicked.connect(self.on_click)
+        button.clicked.connect(lambda: self.on_click(save_file_path=settings_default_path, isExit=True))
         load_previous = False
         self.setting_export = QCheckBox("   Export these settings\n    for survey application", self)
         self.setting_export.toggle()
@@ -149,7 +211,6 @@ class App(QMainWindow):
         open_action.triggered.connect(self.open_settings)
         save_action = QAction("save settings", self)
         save_action.triggered.connect(self.save_settings)
-
 
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu('&File')
@@ -166,15 +227,29 @@ class App(QMainWindow):
         path = QFileDialog.getOpenFileName(self, 'Open a file', '',
                                         'All Files (*.*)')
         if path != ('', ''):
-            print("File path : "+ path[0])
+            print("File path : "+ path[0]) # path as list
+
+
+            try:
+                pickle_load_and_save_settings(path[0])
+            except IOError:
+                print("cant load file")
+
+            #os.execl(sys.executable, sys.executable, *sys.argv)
+            self.canvas1.close()
+            self.canvas.close()
+            self.canvas3.close()
+
+
+            QApplication.exit( App.EXIT_CODE_REBOOT )
+            #self.hide()
 
     def save_settings(self):
-        name, _ = QFileDialog.getSaveFileName(self, 'Save File')
-        if name != '':
-            file = open(name,'w')
-            text = self.textEdit.toPlainText()
-            file.write(text)
-            file.close()
+        file_save = QFileDialog()
+        file_save.setDefaultSuffix('pkl')
+        name, _ = file_save.getSaveFileName(self, 'Save File',"", "PKL (*.pkl)")
+        if name != '' and name != '.pkl':
+            self.on_click(isExit=False, save_file_path=name)
 
     def tab1_UI(self):
 
@@ -203,6 +278,7 @@ class App(QMainWindow):
 
         #Define settings widgets
         self.IDtextbox = QLineEdit(self)
+        self.IDtextbox.setText(id_name)
 
         self.rareness_ordering = QCheckBox("  creature rareness \n according to label complexity", self)
         self.rareness_ordering.toggle()
@@ -582,6 +658,7 @@ class App(QMainWindow):
         vbox2 = QVBoxLayout()
         vbox3 = QVBoxLayout()
         top_layout = QFormLayout()
+        energy_slider_values = [0, impact_max, impact_min, energy_mean]
 
         self.successive_diff = QCheckBox("always use different successive targets", self)
         self.successive_diff.toggle()
@@ -893,10 +970,6 @@ class App(QMainWindow):
         gridlay.addWidget(self.energy_animate_check, 7, 1, 8, 3)
         gridlay.addWidget(self.energy_overlay_check, 8, 1, 9, 3)
 
-        #vbox1.addWidget(feedback_delay_label)
-        #vbox1.addWidget(self.feedback_delay_slider)
-        #vbox1.addWidget(self.feedback_delay_v_label)
-
         outer_layout.addSpacing(15)
         outer_layout.addLayout(gridlay)
         tab4.setLayout(outer_layout)
@@ -942,17 +1015,11 @@ class App(QMainWindow):
         tab3.setLayout(outer_layout)
         return tab3
 
-
-
     @pyqtSlot()
-    def on_click(self):
+    def on_click(self, save_file_path, isExit):
         global export_settings_glob
-        global accepted_glob
-        accepted_glob = True
-        export_settings_glob = self.setting_export.isChecked()
 
-        global mon_ani_ratio
-        mon_ani_ratio = self.obj1_slider.value()
+        export_settings_glob = self.setting_export.isChecked()
 
         # save settings to pkl
         word_slider_values[0] = self.wrd1_slider.value()
@@ -991,18 +1058,14 @@ class App(QMainWindow):
         isEnergy_linear = self.continuous_energy.isChecked()
         diff_successive = self.successive_diff.isChecked()
 
-
-
         # Export settings to pkl for main program
-        with open(os.path.join(dir_path, 'data/current_settings.pkl'), 'wb') as f:
+        with open(save_file_path, 'wb') as f:
             pickle.dump([word_slider_values,
-                         energy_slider_values,
                          object_slider_values,
                          energy_mean,
                          impact_max,
                          impact_min,
                          output_checkboxes,
-                         object_slider_values,
                          id_name,
                          lives,
                          starting_vocabulary,
@@ -1017,20 +1080,21 @@ class App(QMainWindow):
                          increase_scroll,
                          isFixed,
                          scroll_speed_value,
-                         diff_successive
+                         diff_successive,
+                         isSurvey,
+                         isLabel_audio
                          ], f)
-
-        self.close()
+        if isExit:
+            self.close()
 
 
 class Canvas(FigureCanvas):
     def __init__(self, *weights, parent=None, width=8, height=5, dpi=100):
         fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
-        #self.axes = fig.add_subplot(111)
-        #fig = plt.subplots()
         FigureCanvas.__init__(self, fig)
         self.setParent(parent)
         self.plot(*weights)
+        close = plt.close()
 
     def plot(self, *weights):
         self.figure.clear()
@@ -1061,11 +1125,11 @@ class PlotCanvas(FigureCanvas):
         #self.axes, fig = plt.subplots()
         FigureCanvas.__init__(self, fig)
         self.setParent(parent)
+        close = plt.close()
 
         self.plot(weights)
 
     def plot(self, *weights):
-        #print(weights)
         a = 10
         b = 4
         if len(weights) > 1:
@@ -1080,9 +1144,6 @@ class PlotCanvas(FigureCanvas):
 
 
         self.figure.clear()
-        #self.ax = self.figure.subplots()
-        #df = pd.DataFrame({"1":[v1],"2": [v2],"3":[v3]})
-        #df.plot(kind="barh", stacked=True, ax=self.ax)
 
 
         # 100 linearly spaced numbers
@@ -1112,60 +1173,43 @@ class PlotCanvas(FigureCanvas):
             ax.set_ylim([-20, 20])
 
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = App()
-    ex = App()
-    window.show()
-    app.exec_()
 
-with open(os.path.join(dir_path, 'data/current_settings.pkl'), 'rb') as f:
-    word_slider_values, energy_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-    output_checkboxes, object_slider_values, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-    thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-    diff_successive = pickle.load(f)
+
+if __name__ == '__main__':
+    exit_code = 1
+    while True:
+        app = QApplication(sys.argv)
+        window = App()
+        window.show()
+        exit_code = app.exec_()
+        if exit_code == App.EXIT_CODE_REBOOT:
+            window.close()
+            del app
+        else:
+            break
+
+        try:
+            with open(settings_default_path, 'rb') as f:
+                word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
+                output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
+                thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
+                diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+
+            print("saved file found")
+        except IOError:
+            print("could not load new settings")
+            #pickle_save_settings(settings_default_path)
+
+
+
+pickle_save_settings(settings_default_path)
 
 #export settings for data survey file
 if export_settings_glob:
-    with open(os.path.join(dir_path, 'data/survey_settings.pkl'), 'wb') as f:
-        pickle.dump([word_slider_values,
-                     fps,
-                     energy_slider_values,
-                     object_slider_values,
-                     energy_mean,
-                     impact_max,
-                     impact_min,
-                     output_checkboxes,
-                     object_slider_values,
-                     id_name,
-                     lives,
-                     starting_vocabulary,
-                     bg_matchingness,
-                     energy,
-                     thresh,
-                     isEnergy_linear,
-                     load_previous,
-                     isMousetrack,
-                     rareness,
-                     increase_scroll,
-                     isFixed,
-                     scroll_speed_value,
-                     diff_successive
-                     ], f)
-
+    pickle_save_settings('data/survey_settings.pkl')
 
 if isSurvey:
-    with open(os.path.join(dir_path, 'data/survey_settings.pkl'), 'rb') as f:
-        word_slider_values, energy_slider_values, object_slider_values, energy_mean, impact_max, impact_min, output_checkboxes, \
-        object_slider_values, id_name, lives, starting_vocabulary, bg_matchingness, energy, thresh, isEnergy_linear, \
-        load_previous, isMousetrack, rareness, increase_scroll, fps, isFixed, scroll_speed_value, diff_successive = pickle.load(
-            f)
-
-#quit on 'x' in settings
-if 'accepted_glob' in locals():
-    running = accepted_glob
-else:
-    sys.exit()
+    pickle_load_settings('data/survey_settings.pkl')
 
 
 # load input CSV
@@ -1334,9 +1378,6 @@ else:
         objectDict["label_complexity"].append(word_complexity)
 
 
-#pd_objectDict = pd.DataFrame.from_dict(objectDict) # Create dataframe from dictionary
-#pd.set_option("display.max_columns", 100)
-
 # assign animal parameters to on screen array
 
 for i in range(max_animals):
@@ -1402,6 +1443,7 @@ csv_new_line = ["since_stimulus",
                 "isRepeat",
                 "isDisplayed",
                 "x_position",
+                "vocab_size",
                 "player_energy"]  # column labels for .csv header
 csv_output.append(csv_new_line)
 
@@ -1432,7 +1474,7 @@ def weighted_type_select(varietyRange, target_number, generate_target):
     max_weights = max(weights)
     weights = np.add(weights, -min_weights + 1)
     weights = np.divide(weights, max_weights)
-    weights = np.add(1, -weights)
+    weights = np.add(1.1, -weights)
     if rareness:
         if diff_successive and generate_target:
             new_type = target_number
@@ -1579,6 +1621,7 @@ clicked = False
 last_output_click = -1
 
 # Game loop
+running = True
 
 while running:
 
@@ -1675,6 +1718,7 @@ while running:
                                         objectDict["is_monster"][clicked_type],
                                         isRepeat, isTarget_img,
                                         (WINDOW_SIZE[0] / 2 - saved_x),
+                                        current_vocab_size,
                                         round(saved_energy, 1)]
                         csv_output.append(csv_new_line)
 
