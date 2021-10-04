@@ -1201,8 +1201,21 @@ if __name__ == '__main__':
             #pickle_save_settings(settings_default_path)
 
 
+#load saved settings after break in while loop that skips loading
 
-pickle_save_settings(settings_default_path)
+try:
+    with open(settings_default_path, 'rb') as f:
+        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
+        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
+        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
+        diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+
+    print("saved file found")
+except IOError:
+    print("could not load new settings")
+    #pickle_save_settings(settings_default_path)
+
+
 
 #export settings for data survey file
 if export_settings_glob:
