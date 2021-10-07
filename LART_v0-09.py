@@ -9,9 +9,7 @@ import pickle
 import sys
 import pandas as pd
 from tkinter import *
-clock = pygame.time.Clock()
 import numpy as np
-
 import re
 import os
 import platform
@@ -25,7 +23,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
-
+clock = pygame.time.Clock()
 
 operating_system = sys.platform
 if operating_system == "darwin":
@@ -44,6 +42,8 @@ feedback_delay_value = 10
 isFeedback = True
 feedback_random_value = 0
 export_settings_glob = False
+
+exit_application_glob = True
 
 #create default settings and save out to file
 
@@ -84,22 +84,14 @@ isMousetrack = False
 lives = -1
 isFixed = True
 
-def pickle_load_settings(file_path):
-    with open(file_path, 'rb') as f:
-        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isSurvey, isLabel_audio = pickle.load(f)
 
-
-        print("word weights inside function: " + str(word_slider_values))
 
 def pickle_load_and_save_settings(file_path):
     with open(file_path, 'rb') as f:
         word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
         output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+        diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
 
         with open(settings_default_path, 'wb') as f:
             pickle.dump([word_slider_values,
@@ -124,7 +116,8 @@ def pickle_load_and_save_settings(file_path):
                          scroll_speed_value,
                          diff_successive,
                          isSurvey,
-                         isLabel_audio
+                         isLabel_audio,
+                         feedback_random_value
                          ], f)
 
 
@@ -152,7 +145,8 @@ def pickle_save_settings(file_path):
                      scroll_speed_value,
                      diff_successive,
                      isSurvey,
-                     isLabel_audio
+                     isLabel_audio,
+                     feedback_random_value
                      ], f)
 
 
@@ -165,10 +159,8 @@ else:
             word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
             output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
             thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-            diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+            diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
 
-        print("file found")
-        print("word weights: " + str(word_slider_values))
     except IOError:
         print("could not load latest settings")
         pickle_save_settings(settings_default_path)
@@ -235,7 +227,6 @@ class App(QMainWindow):
             except IOError:
                 print("cant load file")
 
-            #os.execl(sys.executable, sys.executable, *sys.argv)
             self.canvas1.close()
             self.canvas.close()
             self.canvas3.close()
@@ -1057,6 +1048,7 @@ class App(QMainWindow):
         isFixed = self.prior_word_set_box.isChecked()
         isEnergy_linear = self.continuous_energy.isChecked()
         diff_successive = self.successive_diff.isChecked()
+        feedback_random_value = self.feedback_random_slider.value()
 
         # Export settings to pkl for main program
         with open(save_file_path, 'wb') as f:
@@ -1082,9 +1074,12 @@ class App(QMainWindow):
                          scroll_speed_value,
                          diff_successive,
                          isSurvey,
-                         isLabel_audio
+                         isLabel_audio,
+                         feedback_random_value
                          ], f)
         if isExit:
+            global exit_application_glob
+            exit_application_glob = False
             self.close()
 
 
@@ -1137,14 +1132,7 @@ class PlotCanvas(FigureCanvas):
             b = int(weights[2])
             c = int(weights[3])
 
-        #else:
-        #    a = 6
-        #    b = 3
-        #    c = 50
-
-
         self.figure.clear()
-
 
         # 100 linearly spaced numbers
         x = np.linspace(-2, 2, 100)
@@ -1193,13 +1181,15 @@ if __name__ == '__main__':
                 word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
                 output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
                 thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-                diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+                diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
 
             print("saved file found")
         except IOError:
             print("could not load new settings")
             #pickle_save_settings(settings_default_path)
 
+if exit_application_glob:
+    sys.exit()
 
 #load saved settings after break in while loop that skips loading
 
@@ -1208,7 +1198,7 @@ try:
         word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
         output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isSurvey, isLabel_audio = pickle.load(f)
+        diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
 
     print("saved file found")
 except IOError:
@@ -1508,6 +1498,7 @@ def weighted_type_select(varietyRange, target_number, generate_target):
 
 
 
+
 def draw_object_name(x, y, i):
     level = font.render(" name : " + str(objectDict["label"][i]), True, (255, 255, 255))
     game_window.blit(level, (x, y))
@@ -1622,6 +1613,19 @@ def playsounds(audio):
     scheduler = False
     return scheduler, wait * fps
 
+def play_feedback_sounds(true_false):
+    weights = [100, feedback_random_value]
+    isSwap = random.choices(population=[1, -1], weights=weights, k=1)
+    chooser = true_false * isSwap[0]
+    isCorrect_sound = 0
+    if chooser == 1:
+        audio = pygame.mixer.Sound(audio_library + "feedback/correct.wav")
+        isCorrect_sound = 1
+    else:
+        audio = pygame.mixer.Sound(audio_library + "feedback/incorrect.wav")
+    audio.play()
+    return isCorrect_sound
+
 
 # new array positions that dont overlap
 for i in range(max_animals):
@@ -1706,13 +1710,16 @@ while running:
                             if current_vocab_size < (animalDict_range - 1):
                                 current_vocab_size += 1
 
-                        scheduler = True
+                        scheduler = True #set count down to play stimulus audio after pause
+                        feedback_sound = play_feedback_sounds(1) #play true/false sound and return code for sound played
 
                     else:
 
                         lives -= 1
                         energy = calculate_energy(energy, energy_mean, isEnergy_linear, -impact_max, -impact_min) # change energy level
                         isCorrect = False
+                        feedback_sound = play_feedback_sounds(-1)
+
 
                     #if start_time[i] != 0:
                     #    # output to CSV
