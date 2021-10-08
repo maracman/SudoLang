@@ -32,7 +32,6 @@ else:
     dir_path = os.getcwd()
 
 
-
 # default settings paths
 settings_default_path = os.path.join(dir_path, 'data/current_settings.pkl')
 
@@ -50,6 +49,7 @@ exit_application_glob = True
 word_slider_values = [0, 50, 50, 25, 10, 10]
 object_slider_values = [50, 50, 50]
 
+#output_checkboxes is used as basis for output_dataframe later on
 output_checkboxes = pd.DataFrame(
     [['click_time', True, "'click_time': Timestamp for click"],
      ['since_last_click', True, "'since_last_click': Time since last response click "],
@@ -95,7 +95,6 @@ bg_matchingness = 0
 isMousetrack = False
 lives = -1
 isFixed = True
-
 
 
 def pickle_load_and_save_settings(file_path):
@@ -1137,7 +1136,6 @@ class Canvas(FigureCanvas):
             #self.ax.patch.set_facecolor('none')
 
 
-
 class PlotCanvas(FigureCanvas):
     def __init__(self, *weights, parent = None, width = 5, height = 5, dpi = 100):
         fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
@@ -1186,8 +1184,7 @@ class PlotCanvas(FigureCanvas):
             ax.set_ylim([-20, 20])
 
 
-
-
+# run settings
 if __name__ == '__main__':
     exit_code = 1
     while True:
@@ -1213,10 +1210,11 @@ if __name__ == '__main__':
             print("could not load new settings")
             #pickle_save_settings(settings_default_path)
 
+# exits program if 'x' is pressed for settings window
 if exit_application_glob:
     sys.exit()
 
-#load saved settings after break in while loop that skips loading
+# load current settings after settings window is exited
 
 try:
     with open(settings_default_path, 'rb') as f:
@@ -1236,6 +1234,7 @@ except IOError:
 if export_settings_glob:
     pickle_save_settings('data/survey_settings.pkl')
 
+#loads settings in survey application
 if isSurvey:
     pickle_load_settings('data/survey_settings.pkl')
 
@@ -1243,7 +1242,7 @@ if isSurvey:
 # load input CSV
 inputData = pd.read_csv(os.path.join(dir_path, 'data/game_input_data.csv'))
 
-#create new dataframe from output checkboxes with output_variable column for output values
+#create new dataframe from 'output_checkboxes' data frame, adding 'output_variable' column for csv
 output_dataframe = output_checkboxes
 sLength = len(output_dataframe['variable_name'])
 s1 = []
@@ -1251,7 +1250,6 @@ for i in range(sLength):
    s1.append('N/A')
 output_dataframe['output_variable'] = pd.Series(s1, index=output_dataframe.index)
 
-print(output_dataframe)
 
 # initialise pygame
 pygame.init()
@@ -1268,7 +1266,7 @@ game_over_font = pygame.font.Font('freesansbold.ttf', 70)
 background = pygame.image.load(os.path.join(dir_path, "data/grass.png"))
 backgroundY = 0
 
-# animal parameters
+# set game parameters and data dictionary
 objectDict = {'ID_numeric':[], 'filepath':[], 'loadImg':[], 'type_score':[], 'label':[], 'label_complexity':[], 'is_monster':[]}
 max_animals = 10 #total array size
 objects_on_screen = 5
@@ -1280,18 +1278,16 @@ objectY_change = scroll_speed_value / (fps / 30)
 current_vocab_size = starting_vocabulary
 new_start_time = 0
 weight_by_complexity = []
-
-
 score_value = 0
 
-# check for repeated target variables
+# set repeat stimulus checking variables
 target_type_previous = -1
 isRepeat = 0
 
 # variable for recording if target image is displayed
 isTarget_img = 1
 
-# animal labels
+# labels
 def labels_shuffle(list1, list2, list3, list4, list5, list6, weight1, weight2, weight3, weight4, weight5, weight6, length):
     weightslist = random.choices([1,2,3,4,5,6], weights=(weight1, weight2, weight3, weight4, weight5, weight6), k=length)
     newlist1 = random.sample(list1, weightslist.count(1))
@@ -1318,7 +1314,6 @@ def objects_shuffle1(pd_data, categories, object_category_weights, length):
             returnlist.append(element)
 
     return returnlist
-
 
 def sort_with_error(list_to_sort, error):
     errorsList = []
@@ -1356,7 +1351,6 @@ if load_previous:
 
     except OSError():
         print("Cannot find previous settings, running using defaults")
-
 
 else:
     # combine word lists and complexity from input data
@@ -1446,25 +1440,17 @@ livesX = 10
 livesY = 40
 
 # player energy
-
-
 energy_counter = 0
 energy_counter_interval = 120 # number of frames until energy drops a little
 score_linear = False
 
-
 textX = 10
 textY = 10
-
-
 
 # target animal
 target_type = object_type[random.randint(0, objects_on_screen)]
 targetX = 720
 targetY = 520
-
-#fps
-#fps = 60
 
  #sound mixer
 mixer.init()
@@ -1475,27 +1461,8 @@ wait = 0.5
 delay = wait * fps
 scheduler = True
 
-
-# csv array and elements
+# csv array and header
 csv_output = []
-#csv_new_line = ["since_stimulus",
-#                "isMatch",
-#                "target_label",
-#                "score_for_target",
-#                "target_word_category",
-#                "target_object_category",
-#                "clicked_label",
-#                "score_for_clicked",
-#                "clicked_word_category",
-#                "clicked_object_category",
-#                "isRepeat",
-#                "isDisplayed",
-#                "x_position",
-#                "vocab_size",
-#                "player_energy"]  # column labels for .csv header
-#csv_output.append(csv_new_line)
-
-
 csv_output = write_line_to_csv_array(output_dataframe, 'variable_name', csv_output)
 
 # mouse coordinate data
@@ -1516,7 +1483,6 @@ def isClicked(animalX,animalY, clickX, clickY):
         return True
     else:
         return False
-
 
 def weighted_type_select(varietyRange, target_number, generate_target):
     weights = list(objectDict["label_complexity"][0:varietyRange])
@@ -1543,9 +1509,6 @@ def weighted_type_select(varietyRange, target_number, generate_target):
         else:
             new_type = random.choice(range(0, varietyRange))
     return new_type
-
-
-
 
 def draw_object_name(x, y, i):
     level = font.render(" name : " + str(objectDict["label"][i]), True, (255, 255, 255))
@@ -1679,7 +1642,6 @@ def play_feedback_sounds(true_false):
 for i in range(max_animals):
     objectX[i], objectY[i] = get_new_randXY(max_animals)
 
-
 new_start_time  = time.time() #sets stimulus time
 last_recorded_click_time = new_start_time
 clicked = False
@@ -1792,28 +1754,12 @@ while running:
                         output_dataframe.at['x_position', 'output_variable'] = (WINDOW_SIZE[0] / 2 - saved_x)
                         output_dataframe.at['vocab_size', 'output_variable'] = current_vocab_size
                         output_dataframe.at['player_energy', 'output_variable'] = round(saved_energy, 1)
-                        output_dataframe = output_dataframe.reset_index()
+                        output_dataframe = output_dataframe.reset_index() #reset index
 
 
                         #write to to csv array
                         csv_output = write_line_to_csv_array(output_dataframe, 'output_variable', csv_output)
 
-
-                        #csv_new_line = [round(time.time() - new_start_time, 4),
-                        #                int(isCorrect),
-                        #                str(objectDict["label"][saved_target_type]),
-                        #                objectDict["type_score"][saved_target_type],
-                        #                objectDict["label_complexity"][saved_target_type],
-                        #                objectDict["is_monster"][saved_target_type],
-                        #                str(objectDict["label"][clicked_type]),
-                        #                objectDict["type_score"][clicked_type],
-                        #                objectDict["label_complexity"][clicked_type],
-                        #                objectDict["is_monster"][clicked_type],
-                        #                isRepeat, isTarget_img,
-                        #                (WINDOW_SIZE[0] / 2 - saved_x),
-                        #                current_vocab_size,
-                        #                round(saved_energy, 1)]
-                        #csv_output.append(csv_new_line)
 
                         if isCorrect:
                             new_start_time = time.time()
