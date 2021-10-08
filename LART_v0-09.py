@@ -51,16 +51,28 @@ word_slider_values = [0, 50, 50, 25, 10, 10]
 object_slider_values = [50, 50, 50]
 
 output_checkboxes = pd.DataFrame(
-    [['click_time', True, "'click_time': Timestamp for click"], ['since_last_click', True, "'since_last_click': Time since last response click "],
-     ['since_stimulus', True, "'since_stimulus': Time since last matching response"], ['target_ref', True, "'object_ref': Reference name for target object"],
-     ['score_for_clicked', True, "'score_for_clicked': No. of prior matches for target object"], ['response_ref', True, "'response_ref': Reference name for response object"],
-     ['word_category', True, "'word_category': Category of the target label"], ['isRepeat', True, "'isRepeat': Was the same target shown for the prior stimulus",],
-     ['isTarget_img', True, "'isMatch': Did the response match the target"], ['x_position', True, "'x_position': Horizontal position of the response click "],
-     ['player_energy', True, "'player_energy': player's energy at time of response"], ['user_ID', True, "'user_ID': Tag each response with the user_ID"],
-     ['isDisplayed', True, "'isDisplayed': is target object image represented as stimulus"], ['clicked_label', True, "clicked_label: The label for the object clicked"],
-     ['clicked_object', True, "'clicked_object': The image for the object clicked"],['target_object', True, "'target_object': The image of the target object"],
-     ['vocab_size', True, "'vocab_size': size of concurrent vocabulary"], ['time_date', False, "'time_date': time stamp of the start of the session"]],
-    columns=pd.Index(['variable_name', 'value', 'label'])
+    [['click_time', True, "'click_time': Timestamp for click"],
+     ['since_last_click', True, "'since_last_click': Time since last response click "],
+     ['since_stimulus', True, "'since_stimulus': Time since last matching response"],
+     ['score_for_clicked', True, "'score_for_clicked': No. of prior matches for clicked object"],
+     ['score_for_target', True, "'score_for_target': No. of prior matches for target object"],
+     ['clicked_word_category', True, "'clicked_word_category': Numerical category of the clicked's label"],
+     ['target_word_category', True, "'target_word_category': Numerical category of the target's label"],
+     ['target_object_category', True, "'target_object_category': Category of the target object"],
+     ['clicked_object_category', True, "'clicked_object_category': Category of the clicked object"],
+     ['isRepeat', True, "'isRepeat': Was the same target shown for the prior stimulus"],
+     ['isMatch', True, "'isMatch': Did the response match the target"],
+     ['x_position', True, "'x_position': Horizontal position of the response click "],
+     ['player_energy', True, "'player_energy': player's energy at time of response"],
+     ['user_ID', True, "'user_ID': Tag each response with the user_ID"],
+     ['isDisplayed', True, "'isDisplayed': is target object image represented as stimulus"],
+     ['clicked_label', True, "clicked_label: The label for the object clicked"],
+     ['clicked_img', True, "'clicked_img': The image name for the object clicked"],
+     ['target_label', True, "target_label: The label for the target object"],
+     ['target_img', True, "'target_img': The image name of the target object"],
+     ['vocab_size', True, "'vocab_size': size of player vocabulary at click"],
+     ['time_date', False, "'time_date': time stamp of the start of the session"]],
+    columns=pd.Index(['variable_name', 'boolean_value', 'description'])
 )
 
 id_name = '_'
@@ -974,17 +986,21 @@ class App(QMainWindow):
         vbox2 = QVBoxLayout()
         vbox3 = QVBoxLayout()
 
-        check_values = output_checkboxes['value']
-        check_variables = output_checkboxes['label']
+        check_values = output_checkboxes['boolean_value']
+        check_variables = output_checkboxes['description']
         self.checkbox_list = QListWidget()
+        list_items = list(range(len(output_checkboxes['variable_name'])))
         for i in range(len(check_variables)):
-            list_item = QListWidgetItem(check_variables[i])
-            list_item.setFlags(list_item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            list_items[i] = QListWidgetItem(check_variables[i])
+            print(check_variables[i])
+            list_items[i].setFlags(list_items[i].flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             if check_values[i]:
-                list_item.setCheckState(Qt.Checked)
+                list_items[i].setCheckState(Qt.Checked)
             else:
-                list_item.setCheckState(Qt.Unchecked)
-            self.checkbox_list.addItem(list_item)
+                list_items[i].setCheckState(Qt.Unchecked)
+            self.checkbox_list.addItem(list_items[i])
+
+
 
 
         self.checkbox_list.setMaximumHeight(400)
@@ -1011,6 +1027,15 @@ class App(QMainWindow):
         global export_settings_glob
 
         export_settings_glob = self.setting_export.isChecked()
+
+        for j in range(len(output_checkboxes['variable_name'])):
+            if self.checkbox_list.item(j).checkState() == Qt.Checked:
+                print('checked')
+                output_checkboxes.at[j, 'boolean_value'] = True
+            else:
+                output_checkboxes.at[j, 'boolean_value'] = False
+
+
 
         # save settings to pkl
         word_slider_values[0] = self.wrd1_slider.value()
@@ -1218,6 +1243,16 @@ if isSurvey:
 # load input CSV
 inputData = pd.read_csv(os.path.join(dir_path, 'data/game_input_data.csv'))
 
+#create new dataframe from output checkboxes with output_variable column for output values
+output_dataframe = output_checkboxes
+sLength = len(output_dataframe['variable_name'])
+s1 = []
+for i in range(sLength):
+   s1.append('N/A')
+output_dataframe['output_variable'] = pd.Series(s1, index=output_dataframe.index)
+
+print(output_dataframe)
+
 # initialise pygame
 pygame.init()
 
@@ -1294,6 +1329,16 @@ def sort_with_error(list_to_sort, error):
     newList = sorted(newSorted, key=lambda l:l[1])
     returnList, junkList = list(zip(*newList))
     return returnList
+
+def write_line_to_csv_array(from_dataframe, df_column_name, to_csv_array):
+    new_line = []
+    for i in range(len(from_dataframe)):
+        if from_dataframe.at[i, 'boolean_value']:
+            append_element = from_dataframe.at[i, df_column_name]
+            new_line.append(append_element)
+    to_csv_array.append(new_line)
+    return to_csv_array
+
 
 if load_previous:
     try:
@@ -1433,22 +1478,25 @@ scheduler = True
 
 # csv array and elements
 csv_output = []
-csv_new_line = ["since_stimulus",
-                "isMatch",
-                "target_label",
-                "score_for_target",
-                "target_word_category",
-                "target_object_category",
-                "clicked_label",
-                "score_for_clicked",
-                "clicked_word_category",
-                "clicked_object_category",
-                "isRepeat",
-                "isDisplayed",
-                "x_position",
-                "vocab_size",
-                "player_energy"]  # column labels for .csv header
-csv_output.append(csv_new_line)
+#csv_new_line = ["since_stimulus",
+#                "isMatch",
+#                "target_label",
+#                "score_for_target",
+#                "target_word_category",
+#                "target_object_category",
+#                "clicked_label",
+#                "score_for_clicked",
+#                "clicked_word_category",
+#                "clicked_object_category",
+#                "isRepeat",
+#                "isDisplayed",
+#                "x_position",
+#                "vocab_size",
+#                "player_energy"]  # column labels for .csv header
+#csv_output.append(csv_new_line)
+
+
+csv_output = write_line_to_csv_array(output_dataframe, 'variable_name', csv_output)
 
 # mouse coordinate data
 mouse_tracking = []
@@ -1726,21 +1774,46 @@ while running:
                     if isCorrect or i != last_output_click or last_recorded_click_time - clicked_time > 2: #makes sure there's nothing recorded when player repeatedly clicks the same wrong answer
                         last_output_click = i
                         last_recorded_click_time = time.time()
-                        csv_new_line = [round(time.time() - new_start_time, 4),
-                                        int(isCorrect),
-                                        str(objectDict["label"][saved_target_type]),
-                                        objectDict["type_score"][saved_target_type],
-                                        objectDict["label_complexity"][saved_target_type],
-                                        objectDict["is_monster"][saved_target_type],
-                                        str(objectDict["label"][clicked_type]),
-                                        objectDict["type_score"][clicked_type],
-                                        objectDict["label_complexity"][clicked_type],
-                                        objectDict["is_monster"][clicked_type],
-                                        isRepeat, isTarget_img,
-                                        (WINDOW_SIZE[0] / 2 - saved_x),
-                                        current_vocab_size,
-                                        round(saved_energy, 1)]
-                        csv_output.append(csv_new_line)
+
+                        #save output data to dataframe
+                        output_dataframe = output_dataframe.set_index(['variable_name']) #set index to variable name
+                        output_dataframe.at['since_stimulus', 'output_variable'] = round(time.time() - new_start_time, 4)
+                        output_dataframe.at['isMatch', 'output_variable'] = int(isCorrect)
+                        output_dataframe.at['target_label', 'output_variable'] = str(objectDict["label"][saved_target_type])
+                        output_dataframe.at['score_for_target', 'output_variable'] = objectDict["type_score"][saved_target_type]
+                        output_dataframe.at['target_word_category', 'output_variable']  = objectDict["label_complexity"][saved_target_type]
+                        output_dataframe.at['target_object_category', 'output_variable'] = objectDict["is_monster"][saved_target_type]
+                        output_dataframe.at['clicked_label', 'output_variable'] = str(objectDict["label"][clicked_type])
+                        output_dataframe.at['score_for_clicked', 'output_variable'] = objectDict["type_score"][clicked_type]
+                        output_dataframe.at['clicked_word_category', 'output_variable'] = objectDict["label_complexity"][clicked_type]
+                        output_dataframe.at['clicked_object_category','output_variable'] = objectDict["is_monster"][clicked_type]
+                        output_dataframe.at['isRepeat', 'output_variable'] = isRepeat
+                        output_dataframe.at['isDisplayed', 'output_variable'] = isTarget_img
+                        output_dataframe.at['x_position', 'output_variable'] = (WINDOW_SIZE[0] / 2 - saved_x)
+                        output_dataframe.at['vocab_size', 'output_variable'] = current_vocab_size
+                        output_dataframe.at['player_energy', 'output_variable'] = round(saved_energy, 1)
+                        output_dataframe = output_dataframe.reset_index()
+
+
+                        #write to to csv array
+                        csv_output = write_line_to_csv_array(output_dataframe, 'output_variable', csv_output)
+
+
+                        #csv_new_line = [round(time.time() - new_start_time, 4),
+                        #                int(isCorrect),
+                        #                str(objectDict["label"][saved_target_type]),
+                        #                objectDict["type_score"][saved_target_type],
+                        #                objectDict["label_complexity"][saved_target_type],
+                        #                objectDict["is_monster"][saved_target_type],
+                        #                str(objectDict["label"][clicked_type]),
+                        #                objectDict["type_score"][clicked_type],
+                        #                objectDict["label_complexity"][clicked_type],
+                        #                objectDict["is_monster"][clicked_type],
+                        #                isRepeat, isTarget_img,
+                        #                (WINDOW_SIZE[0] / 2 - saved_x),
+                        #                current_vocab_size,
+                        #                round(saved_energy, 1)]
+                        #csv_output.append(csv_new_line)
 
                         if isCorrect:
                             new_start_time = time.time()
