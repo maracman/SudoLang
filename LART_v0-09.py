@@ -513,11 +513,13 @@ class App(QMainWindow):
         self.bg_match_slider.setValue(bg_matchingness)
         self.bg_match_slider.setMinimum(0)
         self.bg_match_slider.setMaximum(100)
+        self.bg_match_slider.setEnabled(False)
 
         bg_match_v_label = QLabel('0', self)
         bg_match_v_label.setMinimumWidth(80)
         bg_match_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         bg_match_v_label.setText(str(bg_matchingness))
+        bg_match_v_label.setEnabled(False)
 
         bg_match_label = QLabel('object/background \n matchingness', self)
         bg_match_label.setAlignment(Qt.AlignCenter)
@@ -846,6 +848,7 @@ class App(QMainWindow):
         self.energy_overlay_check = QCheckBox(" low-health vignette overlay  ", self)
         self.energy_overlay_check.toggle()
         self.energy_overlay_check.setChecked(isEnergy_overlay)
+        self.energy_overlay_check.setEnabled(False)
 
         self.label_audio_check = QCheckBox(" play audio for stimulus ", self)
         self.label_audio_check.toggle()
@@ -854,6 +857,7 @@ class App(QMainWindow):
         self.energy_animate_check = QCheckBox(" animate energy bar ", self)
         self.energy_animate_check.toggle()
         self.energy_animate_check.setChecked(isAnimate_energy)
+        self.energy_animate_check.setEnabled(False)
 
         self.increase_scroll_check = QCheckBox(" gradually increase scroll speed ", self)
         self.increase_scroll_check.toggle()
@@ -871,11 +875,14 @@ class App(QMainWindow):
         self.feedback_delay_slider.setMinimum(0)
         self.feedback_delay_slider.setMaximum(100)
         self.feedback_delay_slider.setValue(feedback_delay_value)
+        self.feedback_delay_slider.setEnabled(False)
+
 
         self.feedback_delay_v_label = QLineEdit('0', self)
         self.feedback_delay_v_label.setMaximumWidth(30)
         self.feedback_delay_v_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         self.feedback_delay_v_label.setText(str(feedback_delay_value))
+        self.feedback_delay_v_label.setEnabled(False)
 
         feedback_delay_validator = QIntValidator(0,100)
         self.feedback_delay_v_label.setValidator(feedback_delay_validator)
