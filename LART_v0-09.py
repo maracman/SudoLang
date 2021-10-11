@@ -4,6 +4,7 @@ from pygame import mixer
 import random
 import math
 import time
+from datetime import datetime
 import csv
 import pickle
 import sys
@@ -94,7 +95,7 @@ scroll_speed_value = 3
 bg_matchingness = 0
 isMousetrack = False
 lives = -1
-isFixed = True
+isFixed = False
 
 
 def pickle_load_and_save_settings(file_path):
@@ -299,7 +300,7 @@ class App(QMainWindow):
 
         self.fixed_labels_box = QCheckBox("  use fixed object labels ", self)
         self.fixed_labels_box.toggle()
-        self.fixed_labels_box.setChecked(load_previous)
+        self.fixed_labels_box.setChecked(isFixed)
         self.fixed_labels_box.setToolTip(" ")
 
         self.wrd1_slider = QSlider(Qt.Horizontal, self)
@@ -991,7 +992,6 @@ class App(QMainWindow):
         list_items = list(range(len(output_checkboxes['variable_name'])))
         for i in range(len(check_variables)):
             list_items[i] = QListWidgetItem(check_variables[i])
-            print(check_variables[i])
             list_items[i].setFlags(list_items[i].flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             if check_values[i]:
                 list_items[i].setCheckState(Qt.Checked)
@@ -1029,7 +1029,6 @@ class App(QMainWindow):
 
         for j in range(len(output_checkboxes['variable_name'])):
             if self.checkbox_list.item(j).checkState() == Qt.Checked:
-                print('checked')
                 output_checkboxes.at[j, 'boolean_value'] = True
             else:
                 output_checkboxes.at[j, 'boolean_value'] = False
@@ -1069,7 +1068,7 @@ class App(QMainWindow):
         load_previous = self.prior_word_set_box.isChecked()
         isMousetrack = self.mouse_export.isChecked()
         rareness = self.rareness_ordering.isChecked()
-        isFixed = self.prior_word_set_box.isChecked()
+        isFixed = self.fixed_labels_box.isChecked()
         isEnergy_linear = self.continuous_energy.isChecked()
         diff_successive = self.successive_diff.isChecked()
         feedback_random_value = self.feedback_random_slider.value()
@@ -1267,7 +1266,7 @@ background = pygame.image.load(os.path.join(dir_path, "data/grass.png"))
 backgroundY = 0
 
 # set game parameters and data dictionary
-objectDict = {'ID_numeric':[], 'filepath':[], 'loadImg':[], 'type_score':[], 'label':[], 'label_complexity':[], 'is_monster':[]}
+objectDict = {'ID_numeric':[], 'fixed_name':[], 'filepath':[], 'loadImg':[], 'type_score':[], 'label':[], 'label_complexity':[], 'is_monster':[]}
 max_animals = 10 #total array size
 objects_on_screen = 5
 object_type = []
@@ -1342,12 +1341,14 @@ if load_previous:
         for i in range(animalDict_range):
             objectDict["filepath"].append(prev_data["filepath"][i])
             objectDict['ID_numeric'].append(prev_data["ID_numeric"][i])
+            objectDict['fixed_name'].append(prev_data['fixed_name'][i])
             objectImg_path = str(objectDict["filepath"][i])
             objectDict['loadImg'].append(pygame.image.load(objectImg_path))
             objectDict['type_score'].append(0)
             objectDict['is_monster'].append(prev_data['is_monster'][i])
             objectDict['label'].append(prev_data['label'][i])
             objectDict["label_complexity"].append(prev_data['label_complexity'][i])
+
 
     except OSError():
         print("Cannot find previous settings, running using defaults")
@@ -1405,19 +1406,25 @@ else:
 
     # create animal dictionary from lists
     for i in animal_randomiser:
-         loadName, loadID = animal_weighted_list[i]
-         objectImg_path = os.path.join(dir_path, "data/animals/", str(loadName) + ".png")
-         objectDict["filepath"].append(objectImg_path)
-         objectDict['ID_numeric'].append(loadID)
-         objectDict['loadImg'].append(pygame.image.load(objectImg_path))
-         objectDict['type_score'].append(0)
-         objectDict['is_monster'].append(inputData['is_monster'][loadID])
+        loadName, loadID = animal_weighted_list[i]
+        objectImg_path = os.path.join(dir_path, "data/animals/", str(loadName) + ".png")
+        objectDict["filepath"].append(objectImg_path)
+        objectDict['ID_numeric'].append(loadID)
+        objectDict['fixed_name'].append(loadName)
+        objectDict['loadImg'].append(pygame.image.load(objectImg_path))
+        objectDict['type_score'].append(0)
+        objectDict['is_monster'].append(inputData['is_monster'][loadID])
+        if isFixed:
+            objectDict['label'].append(loadName)
+            objectDict["label_complexity"].append(1)
+
 
     # apply labels to animals in animal dictionary
-    for i in range(len(animal_randomiser)):
-        label, word_complexity = wordlist_category_weights[i]
-        objectDict['label'].append(label)
-        objectDict["label_complexity"].append(word_complexity)
+    if not isFixed:
+        for i in range(len(animal_randomiser)):
+            label, word_complexity = wordlist_category_weights[i]
+            objectDict['label'].append(label)
+            objectDict["label_complexity"].append(word_complexity)
 
 
 # assign animal parameters to on screen array
@@ -1649,6 +1656,8 @@ last_output_click = -1
 
 # Game loop
 running = True
+now = datetime.now()
+start_time_date = now.strftime("%d/%m/%Y %H:%M:%S")
 
 while running:
 
@@ -1735,26 +1744,34 @@ while running:
                     #    # output to CSV
                     if isCorrect or i != last_output_click or last_recorded_click_time - clicked_time > 2: #makes sure there's nothing recorded when player repeatedly clicks the same wrong answer
                         last_output_click = i
-                        last_recorded_click_time = time.time()
+
 
                         #save output data to dataframe
                         output_dataframe = output_dataframe.set_index(['variable_name']) #set index to variable name
-                        output_dataframe.at['since_stimulus', 'output_variable'] = round(time.time() - new_start_time, 4)
+                        output_dataframe.at['since_stimulus', 'output_variable'] = round(clicked_time - new_start_time, 4)
                         output_dataframe.at['isMatch', 'output_variable'] = int(isCorrect)
                         output_dataframe.at['target_label', 'output_variable'] = str(objectDict["label"][saved_target_type])
                         output_dataframe.at['score_for_target', 'output_variable'] = objectDict["type_score"][saved_target_type]
-                        output_dataframe.at['target_word_category', 'output_variable']  = objectDict["label_complexity"][saved_target_type]
+                        output_dataframe.at['target_word_category', 'output_variable'] = objectDict["label_complexity"][saved_target_type]
                         output_dataframe.at['target_object_category', 'output_variable'] = objectDict["is_monster"][saved_target_type]
                         output_dataframe.at['clicked_label', 'output_variable'] = str(objectDict["label"][clicked_type])
                         output_dataframe.at['score_for_clicked', 'output_variable'] = objectDict["type_score"][clicked_type]
                         output_dataframe.at['clicked_word_category', 'output_variable'] = objectDict["label_complexity"][clicked_type]
-                        output_dataframe.at['clicked_object_category','output_variable'] = objectDict["is_monster"][clicked_type]
+                        output_dataframe.at['clicked_object_category', 'output_variable'] = objectDict["is_monster"][clicked_type]
                         output_dataframe.at['isRepeat', 'output_variable'] = isRepeat
                         output_dataframe.at['isDisplayed', 'output_variable'] = isTarget_img
                         output_dataframe.at['x_position', 'output_variable'] = (WINDOW_SIZE[0] / 2 - saved_x)
                         output_dataframe.at['vocab_size', 'output_variable'] = current_vocab_size
                         output_dataframe.at['player_energy', 'output_variable'] = round(saved_energy, 1)
+                        output_dataframe.at['click_time', 'output_variable'] = clicked_time
+                        output_dataframe.at['since_last_click', 'output_variable'] = last_recorded_click_time
+                        output_dataframe.at['user_ID', 'output_variable'] = id_name
+                        output_dataframe.at['time_date', 'output_variable'] = start_time_date
+                        output_dataframe.at['target_img', 'output_variable'] = objectDict['fixed_name'][target_type]
+                        output_dataframe.at['clicked_img', 'output_variable'] = objectDict['fixed_name'][clicked_type]
                         output_dataframe = output_dataframe.reset_index() #reset index
+
+                        last_recorded_click_time = clicked_time
 
 
                         #write to to csv array
@@ -1800,7 +1817,11 @@ while running:
     if scheduler:
         delay = delay - 1
         if delay <= 0:
-            scheduler, delay = playsounds(sound_file)
+            try:
+                scheduler, delay = playsounds(sound_file)
+            except IOError:
+                print('no audio file')
+                scheduler = False
 
     # Game over
     if lives == 0 or energy <= 0:
