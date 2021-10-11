@@ -72,7 +72,8 @@ output_checkboxes = pd.DataFrame(
      ['target_label', True, "target_label: The label for the target object"],
      ['target_img', True, "'target_img': The image name of the target object"],
      ['vocab_size', True, "'vocab_size': size of player vocabulary at click"],
-     ['time_date', False, "'time_date': time stamp of the start of the session"]],
+     ['time_date', False, "'time_date': time stamp of the start of the session"],
+     ['feedback_type', True, "'feedback_type': correct (+1) or incorrect (-1) sound played on click"]],
     columns=pd.Index(['variable_name', 'boolean_value', 'description'])
 )
 
@@ -103,7 +104,7 @@ def pickle_load_and_save_settings(file_path):
         word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
         output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
+        diff_successive, isSurvey, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
         with open(settings_default_path, 'wb') as f:
             pickle.dump([word_slider_values,
@@ -129,7 +130,8 @@ def pickle_load_and_save_settings(file_path):
                          diff_successive,
                          isSurvey,
                          isLabel_audio,
-                         feedback_random_value
+                         feedback_random_value,
+                         isFeedback
                          ], f)
 
 
@@ -158,7 +160,8 @@ def pickle_save_settings(file_path):
                      diff_successive,
                      isSurvey,
                      isLabel_audio,
-                     feedback_random_value
+                     feedback_random_value,
+                     isFeedback
                      ], f)
 
 
@@ -171,7 +174,7 @@ else:
             word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
             output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
             thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-            diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
+            diff_successive, isSurvey, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
     except IOError:
         print("could not load latest settings")
@@ -1072,6 +1075,7 @@ class App(QMainWindow):
         isEnergy_linear = self.continuous_energy.isChecked()
         diff_successive = self.successive_diff.isChecked()
         feedback_random_value = self.feedback_random_slider.value()
+        isFeedback = self.feedback_check.isChecked()
 
         # Export settings to pkl for main program
         with open(save_file_path, 'wb') as f:
@@ -1098,7 +1102,8 @@ class App(QMainWindow):
                          diff_successive,
                          isSurvey,
                          isLabel_audio,
-                         feedback_random_value
+                         feedback_random_value,
+                         isFeedback
                          ], f)
         if isExit:
             global exit_application_glob
@@ -1202,7 +1207,7 @@ if __name__ == '__main__':
                 word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
                 output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
                 thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-                diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
+                diff_successive, isSurvey, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
             print("saved file found")
         except IOError:
@@ -1220,7 +1225,7 @@ try:
         word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
         output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isSurvey, isLabel_audio, feedback_random_value = pickle.load(f)
+        diff_successive, isSurvey, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
     print("saved file found")
 except IOError:
@@ -1455,7 +1460,11 @@ textX = 10
 textY = 10
 
 # target animal
-target_type = object_type[random.randint(0, objects_on_screen)]
+starting_objects = []
+for i in range(objects_on_screen):
+    starting_objects.append(object_type[i])
+
+target_type = random.choice(starting_objects)
 targetX = 720
 targetY = 520
 
@@ -1635,12 +1644,12 @@ def play_feedback_sounds(true_false):
     weights = [100, feedback_random_value]
     isSwap = random.choices(population=[1, -1], weights=weights, k=1)
     chooser = true_false * isSwap[0]
-    isCorrect_sound = 0
     if chooser == 1:
         audio = pygame.mixer.Sound(audio_library + "feedback/correct.wav")
         isCorrect_sound = 1
     else:
         audio = pygame.mixer.Sound(audio_library + "feedback/incorrect.wav")
+        isCorrect_sound = -1
     audio.play()
     return isCorrect_sound
 
@@ -1653,6 +1662,7 @@ new_start_time  = time.time() #sets stimulus time
 last_recorded_click_time = new_start_time
 clicked = False
 last_output_click = -1
+feedback_sound = 0 #zero means no sound played
 
 # Game loop
 running = True
@@ -1700,13 +1710,22 @@ while running:
 
                         #make sure new target is already/soon displayed as falling animal
                         isTarget_displayed = False
+                        in_range_objects = [] #empty list appends object types that are in selected range of screen
                         for j in range(objects_on_screen):
-                            if object_type[j] == target_type:
-                                if objectY[j] >= 0 and objectY[j] <= 300:  # check if displayed in obvious part of screen
-                                        isTarget_displayed = True
-                                        start_time[i] = new_start_time
+                            if objectY[j] >= 0 and objectY[j] <= 300:  # check if displayed in top part (selected range) of screen
+                                in_range_objects.append(object_type[j])
+                                if object_type[j] == target_type:
+                                    isTarget_displayed = True
+                                    start_time[i] = new_start_time #all spawning objects carry time of last stimulus?..not sure if useful
                         if isTarget_displayed == False:
-                            object_type[i] = target_type
+                            if diff_successive:
+                                object_type[i] = target_type #makes replacement for clicked object equal to target type
+                            else:
+                                target_type = random.choice(in_range_objects) #makes target equal to object on screen (preferred)
+
+
+
+
 
 
                         # location respawn with no overlap coordinates
@@ -1730,14 +1749,16 @@ while running:
                                 current_vocab_size += 1
 
                         scheduler = True #set count down to play stimulus audio after pause
-                        feedback_sound = play_feedback_sounds(1) #play true/false sound and return code for sound played
+                        if isFeedback:
+                            feedback_sound = play_feedback_sounds(1) #play true/false sound and return code for sound played
 
                     else:
 
                         lives -= 1
                         energy = calculate_energy(energy, energy_mean, isEnergy_linear, -impact_max, -impact_min) # change energy level
                         isCorrect = False
-                        feedback_sound = play_feedback_sounds(-1)
+                        if isFeedback:
+                            feedback_sound = play_feedback_sounds(-1)
 
 
                     #if start_time[i] != 0:
@@ -1764,11 +1785,12 @@ while running:
                         output_dataframe.at['vocab_size', 'output_variable'] = current_vocab_size
                         output_dataframe.at['player_energy', 'output_variable'] = round(saved_energy, 1)
                         output_dataframe.at['click_time', 'output_variable'] = clicked_time
-                        output_dataframe.at['since_last_click', 'output_variable'] = last_recorded_click_time
+                        output_dataframe.at['since_last_click', 'output_variable'] = last_recorded_click_time - clicked_time
                         output_dataframe.at['user_ID', 'output_variable'] = id_name
                         output_dataframe.at['time_date', 'output_variable'] = start_time_date
                         output_dataframe.at['target_img', 'output_variable'] = objectDict['fixed_name'][target_type]
                         output_dataframe.at['clicked_img', 'output_variable'] = objectDict['fixed_name'][clicked_type]
+                        output_dataframe.at['feedback_type', 'output_variable'] = feedback_sound
                         output_dataframe = output_dataframe.reset_index() #reset index
 
                         last_recorded_click_time = clicked_time
@@ -1810,7 +1832,7 @@ while running:
             start_time[i] = 0
         if objectY[i] >= -5 and objectY[i] < 5:
             if object_type[i] == target_type:
-                start_time[i] = new_start_time
+                start_time[i] = new_start_time  #all spawning objects carry time of last stimulus?..not sure if useful
 
         # play audio of name after delay
     sound_file = str(objectDict["label"][target_type] + '.wav')
