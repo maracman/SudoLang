@@ -38,7 +38,7 @@ settings_default_path = os.path.join(dir_path, 'data/current_settings.pkl')
 survey_settings_path = os.path.join(dir_path, 'data/survey_settings.pkl')
 
 #change to True for Survey program
-isSurvey = False
+isSurvey = True
 
 isEnergy_overlay = False
 isAnimate_energy = False
