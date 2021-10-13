@@ -9,7 +9,6 @@ import csv
 import pickle
 import sys
 import pandas as pd
-from tkinter import *
 import numpy as np
 import re
 import os
@@ -29,13 +28,29 @@ clock = pygame.time.Clock()
 operating_system = sys.platform
 if operating_system == "darwin":
     dir_path = os.path.sep.join(sys.argv[0].split(os.path.sep)[:-1])
+    if not os.path.exists(os.path.join(dir_path, 'SL_data')):
+        parent_dir = os.path.split(dir_path)[0]
+        for i in range(4):
+            print("searching parent directories for program data")
+            if os.path.exists(os.path.join(parent_dir, 'SL_data')):
+                dir_path = parent_dir
+                break
+            else:
+                parent_dir = os.path.split(parent_dir)[0]
 else:
     dir_path = os.getcwd()
 
+data_path = os.path.join(dir_path, 'SL_data/')
 
 # default settings paths
-settings_default_path = os.path.join(dir_path, 'data/current_settings.pkl')
-survey_settings_path = os.path.join(dir_path, 'data/survey_settings.pkl')
+settings_default_path = os.path.join(data_path, 'current_settings.pkl')
+survey_settings_path = os.path.join(data_path, 'survey_settings.pkl')
+font_location = os.path.join(data_path, 'freesansbold.ttf')
+outputs_path = os.path.join(dir_path, 'outputs/')
+previous_data_sets_path = os.path.join(data_path, 'saved_game_states/')
+
+# load input CSV
+inputData = pd.read_csv(os.path.join(data_path, 'game_input_data.csv'))
 
 #change to True for Survey program
 isSurvey = False
@@ -109,32 +124,32 @@ def pickle_load_and_save_settings(file_path):
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
         diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
-        with open(settings_default_path, 'wb') as f:
-            pickle.dump([word_slider_values,
-                         object_slider_values,
-                         energy_mean,
-                         impact_max,
-                         impact_min,
-                         output_checkboxes,
-                         id_name,
-                         lives,
-                         starting_vocabulary,
-                         bg_matchingness,
-                         energy,
-                         thresh,
-                         isEnergy_linear,
-                         load_previous,
-                         isMousetrack,
-                         rareness,
-                         fps,
-                         increase_scroll,
-                         isFixed,
-                         scroll_speed_value,
-                         diff_successive,
-                         isLabel_audio,
-                         feedback_random_value,
-                         isFeedback
-                         ], f)
+    with open(settings_default_path, 'wb') as f:
+        pickle.dump([word_slider_values,
+                     object_slider_values,
+                     energy_mean,
+                     impact_max,
+                     impact_min,
+                     output_checkboxes,
+                     id_name,
+                     lives,
+                     starting_vocabulary,
+                     bg_matchingness,
+                     energy,
+                     thresh,
+                     isEnergy_linear,
+                     load_previous,
+                     isMousetrack,
+                     rareness,
+                     fps,
+                     increase_scroll,
+                     isFixed,
+                     scroll_speed_value,
+                     diff_successive,
+                     isLabel_audio,
+                     feedback_random_value,
+                     isFeedback
+                     ], f)
 
 
 def pickle_save_settings(file_path):
@@ -239,17 +254,19 @@ class App(QMainWindow):
 
 
             try:
+                print("executing load")
                 pickle_load_and_save_settings(path[0])
+                print("load completed")
             except IOError:
                 print("cant load file")
+
 
             self.canvas1.close()
             self.canvas.close()
             self.canvas3.close()
 
-
             QApplication.exit( App.EXIT_CODE_REBOOT )
-            #self.hide()
+
 
     def save_settings(self):
         file_save = QFileDialog()
@@ -1204,10 +1221,11 @@ if __name__ == '__main__' and not isSurvey:
         exit_code = app.exec_()
         if exit_code == App.EXIT_CODE_REBOOT:
             window.close()
+            #app.quit()
             del app
         else:
             break
-
+        print('.')
         try:
             with open(settings_default_path, 'rb') as f:
                 word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
@@ -1218,7 +1236,8 @@ if __name__ == '__main__' and not isSurvey:
             print("saved file found")
         except IOError:
             print("could not load new settings")
-            #pickle_save_settings(settings_default_path)
+
+
 
 if not isSurvey:
 # exits program if 'x' is pressed for settings window
@@ -1243,7 +1262,7 @@ except IOError:
 
 #export settings for data survey file
 if export_settings_glob:
-    pickle_save_settings('data/survey_settings.pkl')
+    pickle_save_settings(survey_settings_path)
 
 #loads settings in survey application
 if isSurvey:
@@ -1254,8 +1273,7 @@ if isSurvey:
         diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
 
-# load input CSV
-inputData = pd.read_csv(os.path.join(dir_path, 'data/game_input_data.csv'))
+
 
 #create new dataframe from 'output_checkboxes' data frame, adding 'output_variable' column for csv
 output_dataframe = output_checkboxes
@@ -1274,11 +1292,11 @@ WINDOW_SIZE = [800, 600]
 game_window = pygame.display.set_mode((WINDOW_SIZE[0], WINDOW_SIZE[1]))
 
 # Game over text
-game_over_font = pygame.font.Font('freesansbold.ttf', 70)
+game_over_font = pygame.font.Font(font_location, 70)
 
 # background
 
-background = pygame.image.load(os.path.join(dir_path, "data/grass.png"))
+background = pygame.image.load(os.path.join(data_path, "grass.png"))
 backgroundY = 0
 
 # set game parameters and data dictionary
@@ -1352,7 +1370,7 @@ def write_line_to_csv_array(from_dataframe, df_column_name, to_csv_array):
 
 if load_previous:
     try:
-        prev_data = pd.read_csv(os.path.join(dir_path, "data/saved_game_states/", str(id_name) + '_' + 'object_label_data.csv'))
+        prev_data = pd.read_csv(os.path.join(data_path, "saved_game_states/", str(id_name) + '_' + 'object_label_data.csv'))
         animalDict_range = len(list(prev_data))
         for i in range(animalDict_range):
             objectDict["filepath"].append(prev_data["filepath"][i])
@@ -1423,7 +1441,7 @@ else:
     # create animal dictionary from lists
     for i in animal_randomiser:
         loadName, loadID = animal_weighted_list[i]
-        objectImg_path = os.path.join(dir_path, "data/animals/", str(loadName) + ".png")
+        objectImg_path = os.path.join(data_path, "obj_images/", str(loadName) + ".png")
         objectDict["filepath"].append(objectImg_path)
         objectDict['ID_numeric'].append(loadID)
         objectDict['fixed_name'].append(loadName)
@@ -1458,7 +1476,7 @@ labelX = 320
 labelY = 550
 
 # score
-font = pygame.font.Font('freesansbold.ttf', 32)
+font = pygame.font.Font(font_location, 32)
 livesX = 10
 livesY = 40
 
@@ -1482,7 +1500,7 @@ targetY = 520
  #sound mixer
 mixer.init()
 mixer.music.set_volume(0.7)
-audio_library = 'data/audio/'
+audio_library = os.path.join(data_path, 'audio/')
 silence = pygame.mixer.Sound(audio_library + 'silence.wav')
 wait = 0.5
 delay = wait * fps
@@ -1557,7 +1575,7 @@ def show_lives(x,y):
 
 def write_csv(csv_array):
     output_file_name = str(id_name) + "_clicktimes_" + str(time.strftime("%Y%m%d-%H%M%S")) + ".csv"
-    with open('data/outputs/' + output_file_name,'w') as file:
+    with open(outputs_path + output_file_name,'w') as file:
         writer = csv.writer(file, delimiter=',')
         writer.writerows(csv_array)
 
@@ -1567,13 +1585,13 @@ def write_mouse_epoch(correct, username, epoch_number, track_arr):
     if correct:
         letter_append = '_C'
         output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
-        with open('data/outputs/mouse_coords/correct/' + output_file_name, 'w') as file:
+        with open(outputs_path + 'mouse_coords/correct/' + output_file_name, 'w') as file:
             writer = csv.writer(file, delimiter=',')
             writer.writerows(track_arr)
     else:
         letter_append = '_I'
         output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
-        with open('data/outputs/mouse_coords/incorrect/' + output_file_name, 'w') as file:
+        with open(outputs_path + 'mouse_coords/incorrect/' + output_file_name, 'w') as file:
             writer = csv.writer(file, delimiter=',')
             writer.writerows(track_arr)
 
@@ -1581,7 +1599,7 @@ def save_obj_labels(object_dict):
     csv_file = str(id_name) + '_' + "object_label_data.csv"
     # header = ['ID_numeric','filepath', 'loadImg','type_score', 'label', 'label_complexity', 'is_monster']
     try:
-        with open("data/saved_game_states/" + csv_file, 'w') as file:
+        with open(previous_data_sets_path + csv_file, 'w') as file:
             writer = csv.writer(file)
             writer.writerow(object_dict.keys())
             writer.writerows(zip(*object_dict.values()))
