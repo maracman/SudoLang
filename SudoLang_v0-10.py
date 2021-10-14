@@ -303,18 +303,18 @@ class App(QMainWindow):
         self.IDtextbox = QLineEdit(self)
         self.IDtextbox.setText(id_name)
 
-        self.rareness_ordering = QCheckBox("  creature rareness \n according to label complexity", self)
+        self.rareness_ordering = QCheckBox("  objects rareness \n according to label complexity", self)
         self.rareness_ordering.toggle()
         self.rareness_ordering.setChecked(rareness)
-        self.rareness_ordering.setToolTip('Creatures that have have been attributed more complex names \n'
+        self.rareness_ordering.setToolTip('objects that have have been attributed more complex names \n'
                                             'will appear and be chosen as the target less often. \n'
-                                            'The player will also be more likely to encounter creatures \n '
+                                            'The player will also be more likely to encounter objects \n '
                                                 'with simpler labels at the start of the game.')
 
-        self.prior_word_set_box = QCheckBox("  load creatures and labels \n  from (user ID's) previous session", self)
+        self.prior_word_set_box = QCheckBox("  load objects and labels \n  from (user ID's) previous session", self)
         self.prior_word_set_box.toggle()
         self.prior_word_set_box.setChecked(load_previous)
-        self.prior_word_set_box.setToolTip("Creatures and their labels will be taken \n"
+        self.prior_word_set_box.setToolTip("objects and their labels will be taken \n"
                                            "from the player's previous game. \n"
                                             'Settings for word weights will be ignored ')
 
@@ -632,15 +632,11 @@ class App(QMainWindow):
         #self.wrd1_slider.setStyleSheet("""QSlider::handle:horizontal { background: blue; border-radius: 10px; }""")
         #tab1.setStyleSheet()
 
-
         self.bg_match_slider.valueChanged.connect(
             lambda: bg_match_v_label.setText(str(self.bg_match_slider.value())))
 
         self.start_vocab_slider.valueChanged.connect(
             lambda: start_vocab_v_label.setText(str(self.start_vocab_slider.value())))
-
-
-
 
         # nest layouts
         outer_layout.addLayout(top_layout)
