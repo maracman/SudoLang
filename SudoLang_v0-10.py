@@ -18,10 +18,14 @@ from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QMainWindow, QWidget, \
     QAction, QTabWidget, QLineEdit, QSlider, QLabel, QCheckBox, QGridLayout, \
     QListWidget, QListWidgetItem, QFileDialog, qApp
 from PyQt5.QtGui import QIntValidator
+from PyQt5 import sip
 from PyQt5.QtCore import pyqtSlot, Qt, QCoreApplication
+import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+matplotlib.use('Qt5Agg')
+
 
 clock = pygame.time.Clock()
 
@@ -63,6 +67,7 @@ feedback_random_value = 0
 export_settings_glob = False
 
 exit_application_glob = True
+reload_settings = False
 
 #create default settings and save out to file
 
@@ -203,11 +208,8 @@ class App(QMainWindow):
         super(App, self).__init__(parent)
         self.setWindowTitle("Game Settings")
         self.resize(470, 500)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         # Create a top-level layout
-
-        button_action = QAction("&Your button", self)
-        button_action.setStatusTip("This is your button")
-        button_action.setCheckable(True)
 
         self.main_widget = QWidget(self)
         self.layout = QVBoxLayout(self.main_widget)
@@ -235,8 +237,8 @@ class App(QMainWindow):
         save_action = QAction("save settings", self)
         save_action.triggered.connect(self.save_settings)
 
-        menuBar = self.menuBar()
-        fileMenu = menuBar.addMenu('&File')
+        self.menubar = self.menuBar()
+        fileMenu = self.menubar.addMenu('&File')
         fileMenu.addAction(open_action)
         fileMenu.addAction(save_action)
 
@@ -246,12 +248,14 @@ class App(QMainWindow):
         self.main_widget.setLayout(self.layout)
         self.setCentralWidget(self.main_widget)
 
+    def exit_reboot(self):
+        QApplication.exit(App.EXIT_CODE_REBOOT)
+
     def open_settings(self):
         path = QFileDialog.getOpenFileName(self, 'Open a file', '',
                                         'All Files (*.*)')
         if path != ('', ''):
             print("File path : "+ path[0]) # path as list
-
 
             try:
                 print("executing load")
@@ -260,12 +264,7 @@ class App(QMainWindow):
             except IOError:
                 print("cant load file")
 
-
-            self.canvas1.close()
-            self.canvas.close()
-            self.canvas3.close()
-
-            QApplication.exit( App.EXIT_CODE_REBOOT )
+            self.exit_reboot()
 
 
     def save_settings(self):
@@ -1051,7 +1050,6 @@ class App(QMainWindow):
     @pyqtSlot()
     def on_click(self, save_file_path, isExit):
         global export_settings_glob
-
         export_settings_glob = self.setting_export.isChecked()
 
         for j in range(len(output_checkboxes['variable_name'])):
@@ -1135,15 +1133,16 @@ class App(QMainWindow):
 
 
 class Canvas(FigureCanvas):
+    @pyqtSlot()
     def __init__(self, *weights, parent=None, width=8, height=5, dpi=100):
         fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
         FigureCanvas.__init__(self, fig)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setParent(parent)
         self.plot(*weights)
-        close = plt.close()
 
     def plot(self, *weights):
-        self.figure.clear()
+        #self.figure.clear()
         if len(weights) > 1:
 
             columns = []
@@ -1164,17 +1163,19 @@ class Canvas(FigureCanvas):
 
 
 class PlotCanvas(FigureCanvas):
+    @pyqtSlot()
     def __init__(self, *weights, parent = None, width = 5, height = 5, dpi = 100):
         fig = Figure(figsize=(width, height), dpi = dpi, facecolor='#E1E1E1')
         #self.axes = fig.add_subplot(111)
         #self.axes, fig = plt.subplots()
         FigureCanvas.__init__(self, fig)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setParent(parent)
-        close = plt.close()
 
         self.plot(weights)
 
     def plot(self, *weights):
+        #self.figure.clear()
         a = 10
         b = 4
         if len(weights) > 1:
@@ -1182,7 +1183,6 @@ class PlotCanvas(FigureCanvas):
             b = int(weights[2])
             c = int(weights[3])
 
-        self.figure.clear()
 
         # 100 linearly spaced numbers
         x = np.linspace(-2, 2, 100)
@@ -1212,20 +1212,24 @@ class PlotCanvas(FigureCanvas):
 
 
 # run settings
-if __name__ == '__main__' and not isSurvey:
-    exit_code = 1
+if not isSurvey:
     while True:
-        app = QApplication(sys.argv)
-        window = App()
-        window.show()
-        exit_code = app.exec_()
-        if exit_code == App.EXIT_CODE_REBOOT:
-            window.close()
-            #app.quit()
+        exit_code = 1
+        if __name__ == '__main__':
+            app = QApplication(sys.argv)
+            window = App()
+            window.show()
+            exit_code = app.exec_()
+            sip.delete(app)
             del app
+            __name__ = '__main__'
+
+        if exit_code == App.EXIT_CODE_REBOOT:
+            print('restarting settings window')
         else:
             break
-        print('.')
+
+
         try:
             with open(settings_default_path, 'rb') as f:
                 word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
@@ -1233,7 +1237,7 @@ if __name__ == '__main__' and not isSurvey:
                 thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
                 diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
-            print("saved file found")
+            print("saved settings found")
         except IOError:
             print("could not load new settings")
 
@@ -1751,10 +1755,6 @@ while running:
                                 object_type[i] = target_type #makes replacement for clicked object equal to target type
                             else:
                                 target_type = random.choice(in_range_objects) #makes target equal to object on screen (preferred)
-
-
-
-
 
 
                         # location respawn with no overlap coordinates
