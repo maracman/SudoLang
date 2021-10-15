@@ -229,6 +229,7 @@ class Enter_Name(QMainWindow):
         global exit_application_glob
         exit_application_glob = False
         id_name = self.IDtextbox.text()
+        self.close()
 
 
 
@@ -1338,7 +1339,6 @@ objectY = []
 objectX = []
 start_time = []
 objectY_change = scroll_speed_value / (fps / 30)
-current_vocab_size = starting_vocabulary
 new_start_time = 0
 weight_by_complexity = []
 score_value = 0
@@ -1352,7 +1352,12 @@ isTarget_img = 1
 
 # labels
 def labels_shuffle(list1, list2, list3, list4, list5, list6, weight1, weight2, weight3, weight4, weight5, weight6, length):
-    weightslist = random.choices([1,2,3,4,5,6], weights=(weight1, weight2, weight3, weight4, weight5, weight6), k=length)
+    weights = (weight1, weight2, weight3, weight4, weight5, weight6)
+
+    if sum(weights) == 0:
+        weights = [1] * 6
+
+    weightslist = random.choices([1,2,3,4,5,6], weights=weights, k=length)
     newlist1 = random.sample(list1, weightslist.count(1))
     newlist2 = random.sample(list2, weightslist.count(2))
     newlist3 = random.sample(list3, weightslist.count(3))
@@ -1368,6 +1373,10 @@ def objects_shuffle1(pd_data, categories, object_category_weights, length):
     weights = []
     for i in categories:
         weights.append(object_category_weights[i])
+
+    if sum(weights) == 0:
+        weights = [1] * len(weights)
+
 
     weightslist = random.choices(categories, weights=weights, k=length)
     for i in categories:
@@ -1465,8 +1474,9 @@ else:
     animalDict_range = obj_cat_list.count(obj_cat_least_item) # maximum list length that will allow for random shuffle
 
     animal_weighted_list = objects_shuffle1(inputData, obj_cat_uniq, object_slider_values, animalDict_range)
-
     animal_randomiser = random.sample(range(animalDict_range), animalDict_range) #creates a shuffled list with every integer between a range appearing once
+
+
 
     # create animal dictionary from lists
     for i in animal_randomiser:
@@ -1490,6 +1500,11 @@ else:
             objectDict['label'].append(label)
             objectDict["label_complexity"].append(word_complexity)
 
+print(animalDict_range)
+if starting_vocabulary <= animalDict_range:
+    current_vocab_size = starting_vocabulary - 1
+else:
+    current_vocab_size = animalDict_range - 1
 
 # assign animal parameters to on screen array
 
