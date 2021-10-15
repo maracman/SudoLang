@@ -201,6 +201,36 @@ else:
         print("could not load latest settings")
         pickle_save_settings(settings_default_path)
 
+class Enter_Name(QMainWindow):
+    def __init__(self, parent=None):
+        super(Enter_Name, self).__init__(parent)
+        self.setWindowTitle("Enter User ID")
+        self.resize(250, 130)
+
+        self.main_widget = QWidget(self)
+        self.layout = QVBoxLayout(self.main_widget)
+
+        self.IDtextbox = QLineEdit(self)
+        self.IDtextbox.setText(id_name)
+        self.IDtextbox.setMinimumHeight(30)
+        self.IDtextbox.setMinimumWidth(200)
+        button = QPushButton('Continue', self)
+        button.clicked.connect(lambda: self.on_click())
+
+        self.layout.addWidget(self.IDtextbox)
+        self.layout.addWidget(button)
+        self.main_widget.setLayout(self.layout)
+        self.setCentralWidget(self.main_widget)
+
+
+    @pyqtSlot()
+    def on_click(self):
+        global id_name
+        global exit_application_glob
+        exit_application_glob = False
+        id_name = self.IDtextbox.text()
+
+
 
 class App(QMainWindow):
     EXIT_CODE_REBOOT = -7654321
@@ -1138,7 +1168,7 @@ class Canvas(FigureCanvas):
         self.plot(*weights)
 
     def plot(self, *weights):
-        #self.figure.clear()
+        self.figure.clear()
         if len(weights) > 1:
 
             columns = []
@@ -1171,7 +1201,7 @@ class PlotCanvas(FigureCanvas):
         self.plot(weights)
 
     def plot(self, *weights):
-        #self.figure.clear()
+        self.figure.clear()
         a = 10
         b = 4
         if len(weights) > 1:
@@ -1237,15 +1267,7 @@ if not isSurvey:
         except IOError:
             print("could not load new settings")
 
-
-
-if not isSurvey:
-# exits program if 'x' is pressed for settings window
-    if exit_application_glob:
-        sys.exit()
-
 # load current settings after settings window is exited
-
 try:
     with open(settings_default_path, 'rb') as f:
         word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
@@ -1257,7 +1279,6 @@ try:
 except IOError:
     print("could not load new settings")
     #pickle_save_settings(settings_default_path)
-
 
 
 #export settings for data survey file
@@ -1272,6 +1293,15 @@ if isSurvey:
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
         diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
+    if __name__ == '__main__':
+        app = QApplication(sys.argv)
+        window = Enter_Name()
+        window.show()
+        exit_code = app.exec_()
+
+# exits program if 'x' is pressed for settings window
+if exit_application_glob:
+    sys.exit()
 
 
 
