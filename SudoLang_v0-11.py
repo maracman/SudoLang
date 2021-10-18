@@ -97,7 +97,8 @@ output_checkboxes = pd.DataFrame(
      ['target_img', True, "'target_img': The image name of the target object"],
      ['vocab_size', True, "'vocab_size': size of player vocabulary at click"],
      ['time_date', False, "'time_date': time stamp of the start of the session"],
-     ['feedback_type', True, "'feedback_type': correct (+1) or incorrect (-1) sound played on click"]],
+     ['feedback_type', True, "'feedback_type': correct (+1) or incorrect (-1) sound played on click"],
+     ['coord_file_name', False, "'coord_file_name': file name of mouse track data for click"]],
     columns=pd.Index(['variable_name', 'boolean_value', 'description'])
 )
 
@@ -1304,6 +1305,25 @@ if isSurvey:
 if exit_application_glob:
     sys.exit()
 
+#session commencing times
+now = datetime.now()
+start_time_date = now.strftime("%Y%m%d-%H%M%S")
+
+# mouse tracking paths
+if isMousetrack:
+    id_folder = '/' + "id_%s" % id_name
+    session_folder = '/' + "session_%s" % str(now.strftime("%Y%m%d-%H%M%S"))
+    current_tracking_dir = str(outputs_path) + '/mouse_tracking' + str(id_folder) + str(session_folder)
+    correct_path = os.path.join(current_tracking_dir, "correct/")
+    incorrect_path = os.path.join(current_tracking_dir, "incorrect/")
+
+    if not os.path.exists(correct_path):
+        os.makedirs(correct_path)
+        print("directory created at " + correct_path)
+
+    if not os.path.exists(incorrect_path):
+        os.makedirs(incorrect_path)
+        print("directory created at " + incorrect_path)
 
 
 #create new dataframe from 'output_checkboxes' data frame, adding 'output_variable' column for csv
@@ -1397,14 +1417,17 @@ def sort_with_error(list_to_sort, error):
     returnList, junkList = list(zip(*newList))
     return returnList
 
-def write_line_to_csv_array(from_dataframe, df_column_name, to_csv_array):
+def write_line_to_csv_array(from_dataframe, df_column_name, to_csv_array, full_csv_array):
     new_line = []
+    new_line_full = []
     for i in range(len(from_dataframe)):
+        append_element = from_dataframe.at[i, df_column_name]
+        new_line_full.append(append_element)
         if from_dataframe.at[i, 'boolean_value']:
-            append_element = from_dataframe.at[i, df_column_name]
             new_line.append(append_element)
     to_csv_array.append(new_line)
-    return to_csv_array
+    full_csv_array.append(new_line_full)
+    return to_csv_array, full_csv_array
 
 
 if load_previous:
@@ -1552,8 +1575,9 @@ delay = wait * fps
 scheduler = True
 
 # csv array and header
+full_csv = []
 csv_output = []
-csv_output = write_line_to_csv_array(output_dataframe, 'variable_name', csv_output)
+csv_output, full_csv = write_line_to_csv_array(output_dataframe, 'variable_name', csv_output, full_csv)
 
 # mouse coordinate data
 mouse_tracking = []
@@ -1618,25 +1642,24 @@ def show_lives(x,y):
     score = font.render("lives : " + str(lives), True, (255, 255, 255))
     game_window.blit(score, (x, y))
 
-def write_csv(csv_array):
-    output_file_name = str(id_name) + "_clicktimes_" + str(time.strftime("%Y%m%d-%H%M%S")) + ".csv"
+def write_csv(csv_array, full_csv_array, timedate):
+    output_file_name = str(id_name) + '_' + timedate + "_clicktimes_" + ".csv"
     with open(outputs_path + output_file_name,'w') as file:
         writer = csv.writer(file, delimiter=',')
         writer.writerows(csv_array)
+    if isMousetrack:
+        with open(current_tracking_dir + '/' + output_file_name,'w') as file:
+            writer = csv.writer(file, delimiter=',')
+            writer.writerows(full_csv_array)
 
-def write_mouse_epoch(correct, username, epoch_number, track_arr):
-    filename_number = str(epoch_number)
+def write_mouse_epoch(correct, filename, track_arr):
 
     if correct:
-        letter_append = '_C'
-        output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
-        with open(outputs_path + 'mouse_coords/correct/' + output_file_name, 'w') as file:
+        with open(correct_path + filename, 'w') as file:
             writer = csv.writer(file, delimiter=',')
             writer.writerows(track_arr)
     else:
-        letter_append = '_I'
-        output_file_name = username + '_' + filename_number.zfill(6) + letter_append + ".csv"
-        with open(outputs_path + 'mouse_coords/incorrect/' + output_file_name, 'w') as file:
+        with open(incorrect_path + filename, 'w') as file:
             writer = csv.writer(file, delimiter=',')
             writer.writerows(track_arr)
 
@@ -1740,14 +1763,13 @@ feedback_sound = 0 #zero means no sound played
 
 # Game loop
 running = True
-now = datetime.now()
-start_time_date = now.strftime("%d/%m/%Y %H:%M:%S")
+
 
 while running:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            write_csv(csv_output)
+            write_csv(csv_output, full_csv, start_time_date)
             save_obj_labels(objectDict)
             running = False
 
@@ -1836,6 +1858,11 @@ while running:
                     if isCorrect or i != last_output_click or last_recorded_click_time - clicked_time > 2: #makes sure there's nothing recorded when player repeatedly clicks the same wrong answer
                         last_output_click = i
 
+                        if isCorrect:
+                            letter_append = '_C'
+                        else:
+                            letter_append = '_I'
+                        mouse_coord_file = id_name + '_' + str(mouse_tracking_file_number).zfill(6) + letter_append + ".csv"
 
                         #save output data to dataframe
                         output_dataframe = output_dataframe.set_index(['variable_name']) #set index to variable name
@@ -1861,20 +1888,21 @@ while running:
                         output_dataframe.at['target_img', 'output_variable'] = objectDict['fixed_name'][target_type]
                         output_dataframe.at['clicked_img', 'output_variable'] = objectDict['fixed_name'][clicked_type]
                         output_dataframe.at['feedback_type', 'output_variable'] = feedback_sound
+                        output_dataframe.at['coord_file_name', 'output_variable'] = mouse_coord_file
                         output_dataframe = output_dataframe.reset_index() #reset index
 
                         last_recorded_click_time = clicked_time
 
 
                         #write to to csv array
-                        csv_output = write_line_to_csv_array(output_dataframe, 'output_variable', csv_output)
+                        csv_output, full_csv = write_line_to_csv_array(output_dataframe, 'output_variable', csv_output, full_csv)
 
 
                         if isCorrect:
                             new_start_time = time.time()
 
                         if isMousetrack:
-                            write_mouse_epoch(isCorrect, id_name, mouse_tracking_file_number, mouse_tracking)
+                            write_mouse_epoch(isCorrect, mouse_coord_file, mouse_tracking)
                         mouse_tracking_file_number = mouse_tracking_file_number + 1
                         mouse_tracking.clear()
 
