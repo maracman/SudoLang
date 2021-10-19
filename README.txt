@@ -2,7 +2,7 @@
  Tool for developing goal-oriented experimental paradigms for cognitive and neurocognitive research into language-learning, attention, memory and semantic processes.
 
 Files:
-1. The main .py file for researchers is named 'SudoLand' + version_number
+1. The main .py file for researchers is named 'SudoLang' + version_number
 2. Data for analysis saved to as .csv in /outputs as username + '_clicktimes_' + time_stamp  
 3. Included is .py file 'SudoLang_Survey' + version_number for providing to participants in an experiment, this file will load settings exported to surrvey_settings.pkl
 4. files that recall settings are located data/saved_game_states (and is automatically accessed by the program) there is one seetings file per username. saving settings with an existing username will overwrite the previous file.
