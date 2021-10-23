@@ -98,7 +98,9 @@ output_checkboxes = pd.DataFrame(
      ['vocab_size', True, "'vocab_size': size of player vocabulary at click"],
      ['time_date', False, "'time_date': time stamp of the start of the session"],
      ['feedback_type', True, "'feedback_type': correct (+1) or incorrect (-1) sound played on click"],
-     ['coord_file_name', False, "'coord_file_name': file name of mouse track data for click"]],
+     ['coord_file_name', False, "'coord_file_name': file name of mouse track data for click"],
+     ['objects_on_screen', False, "'objects_on_screen': the number of objects on screen"],
+     ['scroll_speed', False, "'scroll_speed': the speed objects are progressing down the screen"]],
     columns=pd.Index(['variable_name', 'boolean_value', 'description'])
 )
 
@@ -188,7 +190,7 @@ def pickle_save_settings(file_path):
 
 
 if not os.path.isfile(settings_default_path):
-    print("file not found")
+    print("default settings file not found, initialising settings")
     pickle_save_settings(settings_default_path)
 else:
     try:
@@ -1206,6 +1208,7 @@ class PlotCanvas(FigureCanvas):
         self.figure.clear()
         a = 10
         b = 4
+        c = 50
         if len(weights) > 1:
             a = int(weights[1])
             b = int(weights[2])
@@ -1217,6 +1220,8 @@ class PlotCanvas(FigureCanvas):
         ax = self.figure.add_subplot(1, 1, 1)
         if a >= b:
             y = -1 * np.divide((a - b), (1 + np.power((2 * b * (a - b)), (-1*x)))) + np.divide((a - b), 2)
+
+            #x = np.divide((np.divide(np.divide(y, (a-b)) - (1 -np.divide((a-b),b)) * (((-1 * (np.divide(c, 1 +np.power(10, x)))) + np.divide((c+1), 2)) * (np.divide(y,(a-b))))),(1- np.divide((a-b), b)*((-1 * (np.divide(c, (1+np.power(10, x)))))+np.divide((c+1), 2)) - 2 * (1-np.divide((a-b), b))*((-1(np.divide(w, 1+np.power(10,x))))+ np.divide((w+1,2)))*np.sqrt(np.power(np.divide(y,(a-b)),2))+1)),(np.divide(c,1 + np.power(10,-x) - np.divide((c+1), 2), 2) +2 -np.divide(3+np.sqrt(np.power(c, 2)),4)))+c
 
             ax.spines['left'].set_position('center')
             ax.spines['bottom'].set_position('zero')
@@ -1277,10 +1282,8 @@ try:
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
         diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
-    print("saved file found")
 except IOError:
     print("could not load new settings")
-    #pickle_save_settings(settings_default_path)
 
 
 #export settings for data survey file
@@ -1352,8 +1355,8 @@ backgroundY = 0
 
 # set game parameters and data dictionary
 objectDict = {'ID_numeric':[], 'fixed_name':[], 'filepath':[], 'loadImg':[], 'type_score':[], 'label':[], 'label_complexity':[], 'is_monster':[]}
-max_animals = 10 #total array size
 objects_on_screen = 5
+increase_objects_on_screen = False
 object_type = []
 objectY = []
 objectX = []
@@ -1371,41 +1374,70 @@ isRepeat = 0
 isTarget_img = 1
 
 # labels
-def labels_shuffle(list1, list2, list3, list4, list5, list6, weight1, weight2, weight3, weight4, weight5, weight6, length):
-    weights = (weight1, weight2, weight3, weight4, weight5, weight6)
-
-    if sum(weights) == 0:
-        weights = [1] * 6
-
-    weightslist = random.choices([1,2,3,4,5,6], weights=weights, k=length)
-    newlist1 = random.sample(list1, weightslist.count(1))
-    newlist2 = random.sample(list2, weightslist.count(2))
-    newlist3 = random.sample(list3, weightslist.count(3))
-    newlist4 = random.sample(list4, weightslist.count(4))
-    newlist5 = random.sample(list5, weightslist.count(5))
-    newlist6 = random.sample(list6, weightslist.count(6))
+def labels_shuffle(list1, list2, list3, list4, list5, list6, weights, length):
+    #weightslist = random.choices([1,2,3,4,5,6], weights=weights, k=length)
+    newlist1 = random.sample(list1, weights[0])
+    newlist2 = random.sample(list2, weights[1])
+    newlist3 = random.sample(list3, weights[2])
+    newlist4 = random.sample(list4, weights[3])
+    newlist5 = random.sample(list5, weights[4])
+    newlist6 = random.sample(list6, weights[5])
     returnlist = newlist1 + newlist2 + newlist3 + newlist4 + newlist5 + newlist6
     random.shuffle(returnlist)
     return returnlist
 
 def objects_shuffle1(pd_data, categories, object_category_weights, length):
     returnlist = []
-    weights = []
-    for i in categories:
-        weights.append(object_category_weights[i])
-
-    if sum(weights) == 0:
-        weights = [1] * len(weights)
-
-
-    weightslist = random.choices(categories, weights=weights, k=length)
+    print(object_category_weights)
     for i in categories:
         shufflelist = pd_data[["animal_ID", "ID_numeric"]].loc[pd_data["is_monster"] == i][0:length].values.tolist()
-        appendlist = random.sample(shufflelist, weightslist.count(i))
+        print(shufflelist)
+        appendlist = random.sample(shufflelist, object_category_weights[i])
         for element in appendlist:
             returnlist.append(element)
+    print(returnlist)
 
     return returnlist
+
+def return_max_sample_size(starting_weights, *args):
+    size_list = []
+    for arg in args:
+        size_list.append(len(arg))
+
+    weight_as_quotient = np.divide(starting_weights, np.sum(starting_weights))
+    quotient_size_list = np.divide(size_list, sum(size_list))
+    difference = np.subtract(quotient_size_list, weight_as_quotient)
+    index_min = np.argmin(difference)
+    ideal_size = np.multiply(weight_as_quotient, np.sum(size_list))
+    final_count = np.floor(np.multiply(np.divide(np.floor(ideal_size), ideal_size[index_min]), size_list[index_min]))
+    return int(np.sum(final_count)), np.floor(final_count).astype('int')
+
+def return_max_sample_size1(starting_weights, size_list): #starts with size list
+
+    weight_as_quotient = np.divide(starting_weights, np.sum(starting_weights))
+    quotient_size_list = np.divide(size_list, sum(size_list))
+    ideal_size = np.multiply(weight_as_quotient, np.sum(size_list))
+
+    difference = np.subtract(quotient_size_list, weight_as_quotient)
+    find_min = []
+
+    for i in range(len(difference)):
+        if size_list[i] != 0:
+            find_min.append(difference[i])
+
+    index_min = np.argmin(find_min)
+
+    final_count = np.floor(np.multiply(np.divide(np.floor(ideal_size), ideal_size[index_min]), size_list[index_min]))
+    final_count_with_zeros = []
+
+    for i in range(len(final_count)):
+        if size_list[i] == 0:
+            final_count_with_zeros.append(0)
+        else:
+            final_count_with_zeros.append(final_count[i])
+
+
+    return int(np.sum(final_count_with_zeros)), np.floor(final_count_with_zeros).astype('int')
 
 def sort_with_error(list_to_sort, error):
     errorsList = []
@@ -1445,11 +1477,12 @@ if load_previous:
             objectDict['label'].append(prev_data['label'][i])
             objectDict["label_complexity"].append(prev_data['label_complexity'][i])
 
-
     except OSError():
         print("Cannot find previous settings, running using defaults")
 
 else:
+
+
     # combine word lists and complexity from input data
     labels_cat1 = list(inputData['two_letter_words'][0:inputData['two_letter_words'].count()])
     labels_cat2 = list(inputData['one_syllable_words'][0:inputData['one_syllable_words'].count()])
@@ -1471,35 +1504,63 @@ else:
     for i in range(len(labels_cat6)):
         labels_cat6[i] = labels_cat6[i], 6
 
+    ########Set max possible vocabulary size (called animalDict_range) for weighted random ######
+    #get max size based on object category
+    obj_cat_list = list(inputData['is_monster'])
+    obj_cat_uniq = list(set(obj_cat_list))
+    obj_check_weights = []
+    category_amounts = []
+
+    for i in range(len(object_slider_values)):
+        category_amounts.append(obj_cat_list.count(i))
+        #obj_check_weights.append(object_slider_values[i])
+
+    #check useful sliders aren't zero
+    valid_weights = []
+    for i in obj_cat_uniq:
+        valid_weights.append(object_slider_values[i])
+    if sum(valid_weights) == 0:
+        object_slider_values = [1] * 3
+
+    #get max size based on objects
+    len_obj_list, rounded_obj_weights = return_max_sample_size1(object_slider_values, category_amounts)
+
+
+
+
+    # get maximum size based on labels
+    if sum(word_slider_values) == 0:
+        word_slider_values = [1] * 6
+    len_label_list, rounded_label_weights = return_max_sample_size(word_slider_values,
+                                            labels_cat1, labels_cat2,
+                                            labels_cat3, labels_cat4,
+                                            labels_cat5, labels_cat6)
+
+    #choose smallest
+    if len_obj_list <= len_label_list:
+        animalDict_range = len_obj_list
+    else:
+        animalDict_range = len_label_list
+
+    print("possible objects to learn: " + str(animalDict_range))
+
     # 1.weights words according to settings, 2. sifts list with simple words at front (with normal error)
+
     combined_word_list = labels_shuffle(labels_cat1,
                                         labels_cat2,
                                         labels_cat3,
                                         labels_cat4,
                                         labels_cat5,
                                         labels_cat6,
-                                        word_slider_values[0],
-                                        word_slider_values[1],
-                                        word_slider_values[2],
-                                        word_slider_values[3],
-                                        word_slider_values[4],
-                                        word_slider_values[5], max_animals)
+                                        rounded_label_weights, animalDict_range)
     if rareness:
         wordlist_category_weights = sort_with_error(combined_word_list, 2)
     else:
         wordlist_category_weights = sort_with_error(combined_word_list, 100)
 
     # load animal information to lists from input data
-    obj_cat_list = list(inputData['is_monster'])
-    obj_cat_uniq = list(set(obj_cat_list))
-    obj_cat_num_uniq = len(set(obj_cat_list))
-    obj_cat_least_item = min(set(obj_cat_list))
-    animalDict_range = obj_cat_list.count(obj_cat_least_item) # maximum list length that will allow for random shuffle
-
-    animal_weighted_list = objects_shuffle1(inputData, obj_cat_uniq, object_slider_values, animalDict_range)
+    animal_weighted_list = objects_shuffle1(inputData, obj_cat_uniq, rounded_obj_weights, animalDict_range)  #potential issue with sliders not always refering to equivalent category? Check this
     animal_randomiser = random.sample(range(animalDict_range), animalDict_range) #creates a shuffled list with every integer between a range appearing once
-
-
 
     # create animal dictionary from lists
     for i in animal_randomiser:
@@ -1523,7 +1584,7 @@ else:
             objectDict['label'].append(label)
             objectDict["label_complexity"].append(word_complexity)
 
-print(animalDict_range)
+
 if starting_vocabulary <= animalDict_range:
     current_vocab_size = starting_vocabulary - 1
 else:
@@ -1531,7 +1592,7 @@ else:
 
 # assign animal parameters to on screen array
 
-for i in range(max_animals):
+for i in range(objects_on_screen):
     object_type.append(random.randint(0, current_vocab_size))
     objectX.append(1)
     objectY.append(1)
@@ -1648,7 +1709,8 @@ def write_csv(csv_array, full_csv_array, timedate):
         writer = csv.writer(file, delimiter=',')
         writer.writerows(csv_array)
     if isMousetrack:
-        with open(current_tracking_dir + '/' + output_file_name,'w') as file:
+        output_file_name = str(id_name) + '_' + timedate + "_clicktimes_full" + ".csv"
+        with open(current_tracking_dir + '/' + output_file_name, 'w') as file:
             writer = csv.writer(file, delimiter=',')
             writer.writerows(full_csv_array)
 
@@ -1752,8 +1814,8 @@ def play_feedback_sounds(true_false):
 
 
 # new array positions that dont overlap
-for i in range(max_animals):
-    objectX[i], objectY[i] = get_new_randXY(max_animals)
+for i in range(objects_on_screen):
+    objectX[i], objectY[i] = get_new_randXY(objects_on_screen)
 
 new_start_time  = time.time() #sets stimulus time
 last_recorded_click_time = new_start_time
@@ -1812,7 +1874,7 @@ while running:
                                 in_range_objects.append(object_type[j])
                                 if object_type[j] == target_type:
                                     isTarget_displayed = True
-                                    start_time[i] = new_start_time #all spawning objects carry time of last stimulus?..not sure if useful
+                                    start_time[i] = new_start_time #all spawning objects carry the date they were created
                         if isTarget_displayed == False:
                             if diff_successive:
                                 object_type[i] = target_type #makes replacement for clicked object equal to target type
@@ -1831,14 +1893,15 @@ while running:
                             if increase_scroll:
                                 objectY_change += 0.1
                             # makes more animals on screen
-                            if objects_on_screen < max_animals:
-                                objects_on_screen += 1
+
 
                         # check threshold for type for level up
                         if objectDict['type_score'][target_type] == thresh:
                             # increase animal types shown(only if within array size)
                             if current_vocab_size < (animalDict_range - 1):
                                 current_vocab_size += 1
+                            if objects_on_screen < animalDict_range:
+                                increase_objects_on_screen = True
 
                         scheduler = True #set count down to play stimulus audio after pause
                         if isFeedback:
@@ -1889,6 +1952,8 @@ while running:
                         output_dataframe.at['clicked_img', 'output_variable'] = objectDict['fixed_name'][clicked_type]
                         output_dataframe.at['feedback_type', 'output_variable'] = feedback_sound
                         output_dataframe.at['coord_file_name', 'output_variable'] = mouse_coord_file
+                        output_dataframe.at['objects_on_screen', 'output_variable'] = objects_on_screen
+                        output_dataframe.at['scroll_speed', 'output_variable'] = int(fps * math.floor(objectY_change))
                         output_dataframe = output_dataframe.reset_index() #reset index
 
                         last_recorded_click_time = clicked_time
@@ -1971,6 +2036,16 @@ while running:
     if energy_counter >= energy_counter_interval:
         energy = calculate_energy(energy, energy_mean, isEnergy_linear, -3, -1)
         energy_counter = 0
+
+    if increase_objects_on_screen: #only inscrease size of array after updating
+        new_x, new_y = get_new_randXY(objects_on_screen)
+        new_type = weighted_type_select(current_vocab_size, target_type, False)
+        objectX.append(new_x)
+        objectY.append(new_y)
+        object_type.append(new_type)
+        start_time.append(time.time())
+        objects_on_screen += 1
+        increase_objects_on_screen = False
 
     # required for screen updating, screen movement etc
     pygame.display.update()
