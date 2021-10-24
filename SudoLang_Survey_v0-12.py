@@ -190,7 +190,7 @@ def pickle_save_settings(file_path):
 
 
 if not os.path.isfile(settings_default_path):
-    print("file not found")
+    print("default settings file not found, initialising settings")
     pickle_save_settings(settings_default_path)
 else:
     try:
@@ -1208,6 +1208,7 @@ class PlotCanvas(FigureCanvas):
         self.figure.clear()
         a = 10
         b = 4
+        c = 50
         if len(weights) > 1:
             a = int(weights[1])
             b = int(weights[2])
@@ -1219,6 +1220,8 @@ class PlotCanvas(FigureCanvas):
         ax = self.figure.add_subplot(1, 1, 1)
         if a >= b:
             y = -1 * np.divide((a - b), (1 + np.power((2 * b * (a - b)), (-1*x)))) + np.divide((a - b), 2)
+
+            #x = np.divide((np.divide(np.divide(y, (a-b)) - (1 -np.divide((a-b),b)) * (((-1 * (np.divide(c, 1 +np.power(10, x)))) + np.divide((c+1), 2)) * (np.divide(y,(a-b))))),(1- np.divide((a-b), b)*((-1 * (np.divide(c, (1+np.power(10, x)))))+np.divide((c+1), 2)) - 2 * (1-np.divide((a-b), b))*((-1(np.divide(w, 1+np.power(10,x))))+ np.divide((w+1,2)))*np.sqrt(np.power(np.divide(y,(a-b)),2))+1)),(np.divide(c,1 + np.power(10,-x) - np.divide((c+1), 2), 2) +2 -np.divide(3+np.sqrt(np.power(c, 2)),4)))+c
 
             ax.spines['left'].set_position('center')
             ax.spines['bottom'].set_position('zero')
@@ -1250,12 +1253,13 @@ if not isSurvey:
             window = App()
             window.show()
             exit_code = app.exec_()
-            sip.delete(app)
-            del app
-            __name__ = '__main__'
+
 
         if exit_code == App.EXIT_CODE_REBOOT:
             print('restarting settings window')
+            sip.delete(app)
+            del app
+
         else:
             break
 
@@ -1279,10 +1283,8 @@ try:
         thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
         diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
 
-    print("saved file found")
 except IOError:
     print("could not load new settings")
-    #pickle_save_settings(settings_default_path)
 
 
 #export settings for data survey file

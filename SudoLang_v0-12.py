@@ -1253,12 +1253,13 @@ if not isSurvey:
             window = App()
             window.show()
             exit_code = app.exec_()
-            sip.delete(app)
-            del app
-            __name__ = '__main__'
+
 
         if exit_code == App.EXIT_CODE_REBOOT:
             print('restarting settings window')
+            sip.delete(app)
+            del app
+
         else:
             break
 
