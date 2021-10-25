@@ -1239,9 +1239,9 @@ class PlotCanvas(FigureCanvas):
 
         if a >= b:
             if c >= .5:
-                y = - 5* np.divide(a-b,10) * np.divide(np.exp(np.divide(a-b,b) * (np.divide(x,c)-1)) - 1, np.exp(np.divide(a-b,b) * (np.divide(x,c)-1)) + 1)
+                y = np.divide(a-b,10) * np.divide(np.exp(2*np.divide(a,b-a) * (np.divide(x,c)-1)) - 1, np.exp(2*np.divide(a,b-a) * (np.divide(x,c)-1)) + 1)
             else:
-                y = - 5* np.divide(a-b,10) * np.divide(1 - np.exp(np.divide(a-b,b)*(np.divide(1-x,1-c)-1)), 1 + np.exp(np.divide(a-b,b)*(np.divide(1-x,1-c)-1)))
+                y = np.divide(a-b,10) * np.divide(1 - np.exp(2*np.divide(a,b-a)*(np.divide(1-x,1-c)-1)), 1 + np.exp(2*np.divide(a,b-a)*(np.divide(1-x,1-c)-1)))
 
             #y = -1 * np.divide((a - b), (1 + np.power((2 * b * (a - b)), (-1*x)))) + np.divide((a - b), 2)
             #x = np.divide((np.divide(np.divide(y, (a-b)) - (1 -np.divide((a-b),b)) * (((-1 * (np.divide(c, 1 +np.power(10, x)))) + np.divide((c+1), 2)) * (np.divide(y,(a-b))))),(1- np.divide((a-b), b)*((-1 * (np.divide(c, (1+np.power(10, x)))))+np.divide((c+1), 2)) - 2 * (1-np.divide((a-b), b))*((-1(np.divide(w, 1+np.power(10,x))))+ np.divide((w+1,2)))*np.sqrt(np.power(np.divide(y,(a-b)),2))+1)),(np.divide(c,1 + np.power(10,-x) - np.divide((c+1), 2), 2) +2 -np.divide(3+np.sqrt(np.power(c, 2)),4)))+c
@@ -1255,10 +1255,10 @@ class PlotCanvas(FigureCanvas):
             self.adjust_spines(ax,['left', 'bottom'])
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
-            ax.set_xlim([0, 1])
-            ax.set_ylim([-20, 20])
+            ax.set_xlim([-.5, 1.5])
+            ax.set_ylim([-3, 3])
             #ax.axis("off")
-            ax.set_xlabel("Player Energy (0-100)")
+            ax.set_xlabel("Player Energy (0 --> 100)")
             ax.set_ylabel("Ability to Gain Energy")
             # plot the function
             ax.plot(x, y)
