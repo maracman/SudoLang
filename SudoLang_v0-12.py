@@ -1417,14 +1417,11 @@ def labels_shuffle(list1, list2, list3, list4, list5, list6, weights, length):
 
 def objects_shuffle1(pd_data, categories, object_category_weights, length):
     returnlist = []
-    print(object_category_weights)
     for i in categories:
-        shufflelist = pd_data[["animal_ID", "ID_numeric"]].loc[pd_data["is_monster"] == i][0:length].values.tolist()
-        print(shufflelist)
+        shufflelist = pd_data[["animal_ID", "ID_numeric"]].loc[pd_data["is_monster"] == i].values.tolist() #[0:object_category_weights[i]]
         appendlist = random.sample(shufflelist, object_category_weights[i])
         for element in appendlist:
             returnlist.append(element)
-    print(returnlist)
 
     return returnlist
 
@@ -1432,6 +1429,7 @@ def return_max_sample_size(starting_weights, *args):
     size_list = []
     for arg in args:
         size_list.append(len(arg))
+
 
     weight_as_quotient = np.divide(starting_weights, np.sum(starting_weights))
     quotient_size_list = np.divide(size_list, sum(size_list))
@@ -1442,21 +1440,31 @@ def return_max_sample_size(starting_weights, *args):
     return int(np.sum(final_count)), np.floor(final_count).astype('int')
 
 def return_max_sample_size1(starting_weights, size_list): #starts with size list
+    sum_weights = []
+    for i in range(len(starting_weights)):
+        if size_list[i] != 0:
+            sum_weights.append(starting_weights[i])
+        else:
+            sum_weights.append(0)
 
-    weight_as_quotient = np.divide(starting_weights, np.sum(starting_weights))
-    quotient_size_list = np.divide(size_list, sum(size_list))
+
+
+    weight_as_quotient = np.divide(starting_weights, np.sum(sum_weights)).astype("float32")
+    quotient_size_list = np.divide(size_list, sum(size_list)).astype("float32")
     ideal_size = np.multiply(weight_as_quotient, np.sum(size_list))
 
-    difference = np.subtract(quotient_size_list, weight_as_quotient)
+    difference = np.subtract(quotient_size_list, weight_as_quotient).astype("float32")
     find_min = []
 
     for i in range(len(difference)):
         if size_list[i] != 0:
             find_min.append(difference[i])
+        else:
+            find_min.append(10000)
+
 
     index_min = np.argmin(find_min)
-
-    final_count = np.floor(np.multiply(np.divide(np.floor(ideal_size), ideal_size[index_min]), size_list[index_min]))
+    final_count = np.floor(np.multiply(np.divide(np.floor(ideal_size), ideal_size[index_min]), np.floor(size_list[index_min])))
     final_count_with_zeros = []
 
     for i in range(len(final_count)):
@@ -1464,7 +1472,6 @@ def return_max_sample_size1(starting_weights, size_list): #starts with size list
             final_count_with_zeros.append(0)
         else:
             final_count_with_zeros.append(final_count[i])
-
 
     return int(np.sum(final_count_with_zeros)), np.floor(final_count_with_zeros).astype('int')
 
