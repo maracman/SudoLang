@@ -724,10 +724,10 @@ class App(QMainWindow):
         self.LivesBox.setText('0')
 
 
-        self.canvas3 = PlotCanvas(self, *energy_slider_values, width=0, height=0)
+        self.canvas3 = PlotCanvas(self, *energy_slider_values, width=300, height=270)
         self.canvas3.setStyleSheet("""QWidget {background-color:   grey}""")
-        self.canvas3.setMinimumHeight(80)
-        self.canvas3.setMaximumHeight(150)
+        self.canvas3.setMinimumHeight(300)
+        self.canvas3.setMaximumHeight(450)
 
         self.continuous_energy = QCheckBox(" linear energy impact ", self)
         self.continuous_energy.toggle()
@@ -860,8 +860,6 @@ class App(QMainWindow):
 
         vbox3.addWidget(self.successive_diff)
         vbox3.addSpacing(100)
-
-
 
         outer_layout.addLayout(hbox1)
         hbox1.addLayout(vbox1)
@@ -1201,37 +1199,67 @@ class PlotCanvas(FigureCanvas):
         FigureCanvas.__init__(self, fig)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setParent(parent)
-
         self.plot(weights)
+
+    def adjust_spines(self, ax, spines):
+        for loc, spine in ax.spines.items():
+            if loc in spines:
+                spine.set_position(('outward', 10))  # outward by 10 points
+            else:
+                spine.set_color('none')  # don't draw spine
+
+        # turn off ticks where there is no spine
+        if 'left' in spines:
+            ax.yaxis.set_ticks_position('left')
+        else:
+            # no yaxis ticks
+            ax.yaxis.set_ticks([])
+
+        if 'bottom' in spines:
+            ax.xaxis.set_ticks_position('bottom')
+        else:
+            # no xaxis ticks
+            ax.xaxis.set_ticks([])
 
     def plot(self, *weights):
         self.figure.clear()
-        a = 10
-        b = 4
-        c = 50
+
+        a = impact_max
+        b = impact_min
+        c = energy_mean/100
         if len(weights) > 1:
             a = int(weights[1])
             b = int(weights[2])
-            c = int(weights[3])
-
+            c = int(weights[3])/100
 
         # 100 linearly spaced numbers
         x = np.linspace(-2, 2, 100)
         ax = self.figure.add_subplot(1, 1, 1)
-        if a >= b:
-            y = -1 * np.divide((a - b), (1 + np.power((2 * b * (a - b)), (-1*x)))) + np.divide((a - b), 2)
 
+
+        if a >= b:
+            if c >= .5:
+                y = - 5* np.divide(a-b,10) * np.divide(np.exp(np.divide(a-b,b) * (np.divide(x,c)-1)) - 1, np.exp(np.divide(a-b,b) * (np.divide(x,c)-1)) + 1)
+            else:
+                y = - 5* np.divide(a-b,10) * np.divide(1 - np.exp(np.divide(a-b,b)*(np.divide(1-x,1-c)-1)), 1 + np.exp(np.divide(a-b,b)*(np.divide(1-x,1-c)-1)))
+
+            #y = -1 * np.divide((a - b), (1 + np.power((2 * b * (a - b)), (-1*x)))) + np.divide((a - b), 2)
             #x = np.divide((np.divide(np.divide(y, (a-b)) - (1 -np.divide((a-b),b)) * (((-1 * (np.divide(c, 1 +np.power(10, x)))) + np.divide((c+1), 2)) * (np.divide(y,(a-b))))),(1- np.divide((a-b), b)*((-1 * (np.divide(c, (1+np.power(10, x)))))+np.divide((c+1), 2)) - 2 * (1-np.divide((a-b), b))*((-1(np.divide(w, 1+np.power(10,x))))+ np.divide((w+1,2)))*np.sqrt(np.power(np.divide(y,(a-b)),2))+1)),(np.divide(c,1 + np.power(10,-x) - np.divide((c+1), 2), 2) +2 -np.divide(3+np.sqrt(np.power(c, 2)),4)))+c
 
             ax.spines['left'].set_position('center')
             ax.spines['bottom'].set_position('zero')
             ax.spines['right'].set_color('none')
             ax.spines['top'].set_color('none')
+            ax.yaxis.set_ticks([])
+            ax.xaxis.set_ticks([])
+            self.adjust_spines(ax,['left', 'bottom'])
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
-            ax.set_xlim([-1, 1])
+            ax.set_xlim([0, 1])
             ax.set_ylim([-20, 20])
-            ax.axis("off")
+            #ax.axis("off")
+            ax.set_xlabel("Player Energy (0-100)")
+            ax.set_ylabel("Ability to Gain Energy")
             # plot the function
             ax.plot(x, y)
             #ax.legend(loc='upper left')
@@ -1240,7 +1268,7 @@ class PlotCanvas(FigureCanvas):
             ax.plot(x, y, label='Minimum must not exceed maximum')
             ax.axis("off")
             ax.legend(loc='center')
-            ax.set_xlim([-1, 1])
+            ax.set_xlim([0, 1])
             ax.set_ylim([-20, 20])
 
 
