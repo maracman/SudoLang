@@ -71,8 +71,8 @@ reload_settings = False
 
 #create default settings and save out to file
 
-word_slider_values = [0, 50, 50, 25, 10, 10]
-object_slider_values = [50, 50, 50]
+word_slider_values = [5, 20, 45, 35, 15, 10]
+object_slider_values = [50, 50, 0]
 
 #output_checkboxes is used as basis for output_dataframe later on
 output_checkboxes = pd.DataFrame(
@@ -107,16 +107,16 @@ output_checkboxes = pd.DataFrame(
 id_name = '_'
 energy = 50
 impact_max = 6
-impact_min = 1
+impact_min = 3
 energy_mean = 30 #"stick-point"
 isEnergy_linear = False
 load_previous = False
 rareness = True
 diff_successive = True
 increase_scroll = True
-thresh = 10
+thresh = 4
 starting_vocabulary = 3
-fps = 30
+fps = 50
 isLabel_audio = True
 scroll_speed_value = 3
 bg_matchingness = 0
@@ -722,6 +722,7 @@ class App(QMainWindow):
         self.onlyInt = QIntValidator()
         self.LivesBox.setValidator(self.onlyInt)
         self.LivesBox.setText('0')
+        self.LivesBox.setToolTip('Set to zero for infinite lives')
 
 
         self.canvas3 = PlotCanvas(self, *energy_slider_values, width=300, height=270)
@@ -741,10 +742,17 @@ class App(QMainWindow):
         self.starting_energy_slider.setMinimum(0)
         self.starting_energy_slider.setMaximum(99)
 
-        starting_energy_value_label = QLabel('0', self)
-        starting_energy_value_label.setMinimumWidth(80)
-        starting_energy_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        starting_energy_value_label.setText(str(energy))
+        self.starting_energy_value_label = QLineEdit('0', self)
+        self.starting_energy_value_label.setMinimumWidth(80)
+        self.starting_energy_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.starting_energy_value_label.setText(str(energy))
+        starting_energy_validator = QIntValidator(0,100)
+        self.starting_energy_value_label.setValidator(starting_energy_validator)
+
+        self.starting_energy_value_label.returnPressed.connect(
+            lambda: self.starting_energy_slider.setValue(int(self.starting_energy_value_label.text())))
+        self.starting_energy_slider.valueChanged.connect(
+            lambda: self.starting_energy_value_label.setText(str(self.starting_energy_slider.value())))
 
         starting_energy_label = QLabel('Starting energy', self)
         starting_energy_label.setAlignment(Qt.AlignCenter)
@@ -752,14 +760,20 @@ class App(QMainWindow):
 
         self.stick_point_slider = QSlider(Qt.Horizontal, self)
         self.stick_point_slider.setValue(energy_slider_values[3])
-        self.stick_point_slider.setMinimum(0)
+        self.stick_point_slider.setMinimum(1)
         self.stick_point_slider.setMaximum(99)
 
+        self.stick_point_value_label = QLineEdit('0', self)
+        self.stick_point_value_label.setMinimumWidth(80)
+        self.stick_point_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.stick_point_value_label.setText(str(energy_slider_values[3]))
+        stick_point_validator = QIntValidator(1,99)
+        self.stick_point_value_label.setValidator(stick_point_validator)
 
-        stick_point_value_label = QLabel('0', self)
-        stick_point_value_label.setMinimumWidth(80)
-        stick_point_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        stick_point_value_label.setText(str(energy_slider_values[3]))
+        self.stick_point_value_label.returnPressed.connect(
+            lambda: self.stick_point_slider.setValue(int(self.stick_point_value_label.text())))
+        self.stick_point_slider.valueChanged.connect(
+            lambda: self.stick_point_value_label.setText(str(self.stick_point_slider.value())))
 
         stick_point_label = QLabel('Energy stick point', self)
         stick_point_label.setAlignment(Qt.AlignCenter)
@@ -774,10 +788,17 @@ class App(QMainWindow):
         self.min_impact_slider.setMaximum(15)
         self.min_impact_slider.setValue(energy_slider_values[2])
 
-        min_impact_value_label = QLabel('0', self)
-        min_impact_value_label.setMinimumWidth(80)
-        min_impact_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        min_impact_value_label.setText(str(energy_slider_values[2]))
+        self.min_impact_value_label = QLineEdit('0', self)
+        self.min_impact_value_label.setMinimumWidth(80)
+        self.min_impact_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.min_impact_value_label.setText(str(energy_slider_values[2]))
+        min_impact_validator = QIntValidator(1,15)
+        self.min_impact_value_label.setValidator(min_impact_validator)
+
+        self.min_impact_value_label.returnPressed.connect(
+            lambda: self.min_impact_slider.setValue(int(self.min_impact_value_label.text())))
+        self.min_impact_slider.valueChanged.connect(
+            lambda: self.min_impact_value_label.setText(str(self.min_impact_slider.value())))
 
         min_impact_label = QLabel('Minimum energy impact', self)
         min_impact_label.setAlignment(Qt.AlignCenter)
@@ -788,11 +809,17 @@ class App(QMainWindow):
         self.max_impact_slider.setMaximum(20)
         self.max_impact_slider.setValue(energy_slider_values[1])
 
+        self.max_impact_value_label = QLineEdit('0', self)
+        self.max_impact_value_label.setMinimumWidth(80)
+        self.max_impact_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.max_impact_value_label.setText(str(energy_slider_values[1]))
+        max_impact_validator = QIntValidator(5,20)
+        self.max_impact_value_label.setValidator(max_impact_validator)
 
-        max_impact_value_label = QLabel('0', self)
-        max_impact_value_label.setMinimumWidth(80)
-        max_impact_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        max_impact_value_label.setText(str(energy_slider_values[1]))
+        self.max_impact_value_label.returnPressed.connect(
+            lambda: self.max_impact_slider.setValue(int(self.max_impact_value_label.text())))
+        self.max_impact_slider.valueChanged.connect(
+            lambda: self.max_impact_value_label.setText(str(self.max_impact_slider.value())))
 
         max_impact_label = QLabel('Maximum energy impact', self)
         max_impact_label.setAlignment(Qt.AlignCenter)
@@ -803,11 +830,17 @@ class App(QMainWindow):
         self.tally_theshold_slider.setMaximum(100)
         self.tally_theshold_slider.setValue(thresh)
 
+        self.tally_theshold_value_label = QLineEdit('0', self)
+        self.tally_theshold_value_label.setMinimumWidth(80)
+        self.tally_theshold_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.tally_theshold_value_label.setText(str(thresh))
+        tally_theshold_validator = QIntValidator(0,100)
+        self.tally_theshold_value_label.setValidator(tally_theshold_validator)
 
-        tally_theshold_value_label = QLabel('0', self)
-        tally_theshold_value_label.setMinimumWidth(80)
-        tally_theshold_value_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        tally_theshold_value_label.setText(str(thresh))
+        self.tally_theshold_value_label.returnPressed.connect(
+            lambda: self.tally_theshold_slider.setValue(int(self.tally_theshold_value_label.text())))
+        self.tally_theshold_slider.valueChanged.connect(
+            lambda: self.tally_theshold_value_label.setText(str(self.tally_theshold_slider.value())))
 
         tally_theshold_label = QLabel('threshold for target image', self)
         tally_theshold_label.setAlignment(Qt.AlignCenter)
@@ -818,15 +851,10 @@ class App(QMainWindow):
         # style sheets
 
 
-        # value change functions
-        self.starting_energy_slider.valueChanged.connect(lambda: starting_energy_value_label.setText(str(self.starting_energy_slider.value())))
-        self.stick_point_slider.valueChanged.connect(lambda: stick_point_value_label.setText(str(energy_slider_values[3])))
+        # value change functions for graphs
         self.stick_point_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
-        self.min_impact_slider.valueChanged.connect(lambda: min_impact_value_label.setText(str(energy_slider_values[2])))
         self.min_impact_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
-        self.max_impact_slider.valueChanged.connect(lambda: max_impact_value_label.setText(str(energy_slider_values[1])))
         self.max_impact_slider.valueChanged.connect(lambda: self.draw_plot(energy_slider_values))
-        self.tally_theshold_slider.valueChanged.connect(lambda: tally_theshold_value_label.setText(str(self.tally_theshold_slider.value())))
 
         top_layout.addRow("Number of Lives:", self.LivesBox)
 
@@ -835,24 +863,24 @@ class App(QMainWindow):
         vbox1.addSpacing(15)
         vbox1.addWidget(starting_energy_label)
         vbox1.addWidget(self.starting_energy_slider)
-        vbox1.addWidget(starting_energy_value_label)
+        vbox1.addWidget(self.starting_energy_value_label)
 
         vbox2.addWidget(stick_point_label)
         vbox2.addWidget(self.stick_point_slider)
-        vbox2.addWidget(stick_point_value_label)
+        vbox2.addWidget(self.stick_point_value_label)
 
         vbox2.addWidget(min_impact_label)
         vbox2.addWidget(self.min_impact_slider)
-        vbox2.addWidget(min_impact_value_label)
+        vbox2.addWidget(self.min_impact_value_label)
 
         vbox2.addWidget(max_impact_label)
         vbox2.addWidget(self.max_impact_slider)
-        vbox2.addWidget(max_impact_value_label)
+        vbox2.addWidget(self.max_impact_value_label)
 
         vbox1.addSpacing(15)
         vbox1.addWidget(tally_theshold_label)
         vbox1.addWidget(self.tally_theshold_slider)
-        vbox1.addWidget(tally_theshold_value_label)
+        vbox1.addWidget(self.tally_theshold_value_label)
 
         vbox1.addSpacing(52)
         vbox1.addWidget(self.continuous_energy)
@@ -1259,7 +1287,7 @@ class PlotCanvas(FigureCanvas):
             ax.set_ylim([-3, 3])
             #ax.axis("off")
             ax.set_xlabel("Player Energy (0 --> 100)")
-            ax.set_ylabel("Ability to Gain Energy")
+            ax.set_ylabel("Relative Ability to Gain Energy")
             # plot the function
             ax.plot(x, y)
             #ax.legend(loc='upper left')
