@@ -1,4 +1,5 @@
 import os
+import colorsys
 import sys
 import numpy as np
 import math
@@ -7,9 +8,12 @@ from PIL import Image
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-divide_resolution = 2
+divide_resolution = 1
 acc_curve = 8
-line_width = 4
+line_width = 6
+accel_channels = 2
+HSV = True
+click_batch = 1
 
 
 def get_path():
@@ -23,17 +27,62 @@ def get_path():
     return_path = os.path.join(dir_path, 'outputs/mouse_coords/')
     return return_path
 
+def hsv_to_rgb(h, s, v):
+    if s == 0.0: v*=255; return (v, v, v)
+    i = int(h*6.) # XXX assume int() truncates!
+    f = (h*6.)-i; p,q,t = int(255*(v*(1.-s))), int(255*(v*(1.-s*f))), int(255*(v*(1.-s*(1.-f)))); v*=255; i%=6
+    if i == 0: return (v, t, p)
+    if i == 1: return (q, v, p)
+    if i == 2: return (p, v, t)
+    if i == 3: return (p, q, v)
+    if i == 4: return (t, p, v)
+    if i == 5: return (v, p, q)
+
 def convert_to_gb(c):
     c = c * 100000 #colours loop back roughly every 10 seconds
     g = math.floor(c / 256) % 256
     b = c % 256
     return g,b
 
-def convert_to_rgb(c): #convert time information into unique RGB data
-    c = c * 1000000 #colours loop back roughly every 100 seconds
-    r = math.floor(c / (256 * 256))
-    g = math.floor(c / 256) % 256
-    b = c % 256
+def convert_to_rgb(c, vel, max_vel): #convert time information into unique RGB data
+    if not HSV:
+        if accel_channels == 0:
+            c = c * 1000000 #colours loop back roughly every 100 seconds
+            r = round(math.floor(c / (256 * 256)))
+            g = round(math.floor(c / 256) % 256)
+            b = c % 256
+        elif accel_channels == 1:
+            c = c * 100000  # colours loop back roughly every 10 seconds
+            g = round(math.floor(c / 256) % 256)
+            b = c % 256
+            r = round((vel/max_vel) * 256)
+        elif accel_channels == 2:
+            vel = vel/max_vel * 256 * 256
+            g = round(math.floor(vel / 256) % 256)
+            b = vel % 256
+            r = c * 50
+        else:
+            vel = vel * 1000000
+            r = round(math.floor(vel / (256 * 256)))
+            g = round(math.floor(vel / 256) % 256)
+            b = vel % 256
+    else:
+        #print("c " + str(c))
+        h = round(c / 15 * 360) % 360  #sets how many scods in th epoch can be differentiated
+        #print('h '+ str(h))
+        s = round(int((vel/max_vel) * 100))
+        v = round(int((vel/max_vel) * 100))
+        if s < 5:
+            s = 5
+        if v < 5:
+            v = 5
+        print(s)
+        rgb = colorsys.hsv_to_rgb((h/360.0),(s/100.0),(v/100.0))
+        print(rgb)
+        r = rgb[0] * 256
+        g = rgb[1] * 256
+        b = rgb[2] * 256
+
     return r,g,b
 
 def countdown_convert(mouse_timing): #creates rgb consistent relative to final click (significant improvements to models)
@@ -98,7 +147,6 @@ def draw_line(mat, x0, y0, x1, y1, inplace=False):
             mat[x0 - x_inc, y0 - y_inc] = 1
             mat[x1 - x_inc, y1 - y_inc] = 1
 
-
     #thicken betweens
     for i in range(len(x)):
         for x_inc in range(int(lim1 + lim2)):
@@ -108,7 +156,30 @@ def draw_line(mat, x0, y0, x1, y1, inplace=False):
     if not inplace:
         return mat if not transpose else mat.T
 
-def convert_to_png(folder_loc):
+
+def calculate_max_vel(folder_loc):
+    max_velocity=0
+    for root,dirs,files in os.walk(folder_loc):
+        for file in files:
+
+            if file.endswith(".csv"):
+                try:
+                    #print(os.path.join(folder_loc, file))
+                    f=open(os.path.join(folder_loc, file), 'r')
+                    file_info = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
+                    velocity, acceleration = acc_vel_array(file_info, acc_curve)
+
+                    for i in range(acc_curve, len(file_info), 1):
+                        new_velocity = velocity[i]
+                        if new_velocity >= max_velocity:
+                            max_velocity = new_velocity
+                except IOError:
+                    print("couldn't load file")
+
+    return max_velocity
+
+
+def convert_to_png(folder_loc, max_vel):
 
     for root,dirs,files in os.walk(folder_loc):
         for file in files:
@@ -126,14 +197,16 @@ def convert_to_png(folder_loc):
                     #print(countdown_array)
 
                     for i in range(acc_curve, len(file_info), 1):
-                        #colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i]) #time to rgb
+                        colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i], velocity[i], max_vel) #time to rgb
 
 
 
-                        colour_g, colour_b = convert_to_gb(countdown_array[i]) #time to green/blue
+                        #colour_g, colour_b = convert_to_gb(countdown_array[i]) #time to green/blue
                         #colour_g = 150
                         #colour_b = 150
-                        colour_r = velocity_to_r(velocity[i]) #velocity to red
+                        print(velocity[i])
+                        #print(velocity[i])
+                        #colour_r = velocity_to_r(velocity[i]) #velocity to red
 
                         x_coord = round(int(file_info[i][1])/divide_resolution)
                         y_coord = round(int(file_info[i][0])/divide_resolution)
@@ -161,7 +234,6 @@ def convert_to_png(folder_loc):
 
                         for j in range(len(line_coords)):
                             if np.nonzero(line_coords[j]):
-                                print(line_coords[j])
                                 joining_x, joining_y = line_coords[j,0], line_coords[j,1]
                                 pix_array[joining_x, joining_y] = [colour_r, colour_g, colour_b]
 
@@ -189,9 +261,14 @@ def convert_to_png(folder_loc):
                 f.close()
 
 # run program
-directory = get_path()
 
+directory = get_path()
+maximum_velocity_incorrect = calculate_max_vel(directory + "incorrect")
+
+maximum_velocity_correct = calculate_max_vel(directory + "correct")
+maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
+print(maximum_velocity_total)
 incorrect_location = directory + "incorrect"
 correct_location = directory + "correct"
-convert_to_png(correct_location)
-convert_to_png(incorrect_location)
+convert_to_png(correct_location, maximum_velocity_total)
+convert_to_png(incorrect_location, maximum_velocity_total)
