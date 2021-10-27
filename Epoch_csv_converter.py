@@ -7,8 +7,9 @@ from PIL import Image
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-divide_resolution = 10
+divide_resolution = 2
 acc_curve = 8
+line_width = 4
 
 
 def get_path():
@@ -19,10 +20,8 @@ def get_path():
     else:
         dir_path = os.getcwd()
 
-    return_path = os.path.join(dir_path, 'data/outputs/mouse_coords/')
+    return_path = os.path.join(dir_path, 'outputs/mouse_coords/')
     return return_path
-
-
 
 def convert_to_gb(c):
     c = c * 100000 #colours loop back roughly every 10 seconds
@@ -86,6 +85,26 @@ def draw_line(mat, x0, y0, x1, y1, inplace=False):
     y = np.round(((y1 - y0) / (x1 - x0)) * (x - x0) + y0).astype(x.dtype)
     # Write intermediate coordinates
     mat[x, y] = 1
+
+    #draw thickness
+    lim1 = line_width / 2
+    if line_width % 2 == 0:
+        lim2 = lim1
+    else:
+        lim2 = lim1 - 1
+    #thicken points
+    for x_inc in range(int(lim1 + lim2)):
+        for y_inc in range(int(lim1 + lim2)):
+            mat[x0 - x_inc, y0 - y_inc] = 1
+            mat[x1 - x_inc, y1 - y_inc] = 1
+
+
+    #thicken betweens
+    for i in range(len(x)):
+        for x_inc in range(int(lim1 + lim2)):
+            for y_inc in range(int(lim1 + lim2)):
+                mat[x[i] - x_inc, y[i] - y_inc] = 1
+
     if not inplace:
         return mat if not transpose else mat.T
 
@@ -123,9 +142,18 @@ def convert_to_png(folder_loc):
                             y_next = round(int(file_info[i+1][0])/divide_resolution)
 
                         trace_between_array = draw_line(
-                            np.zeros((round(600 / divide_resolution) + 1, round(800 / divide_resolution) + 1)), x_coord,
+                            np.zeros((round(600 / divide_resolution) + line_width, round(800 / divide_resolution) + line_width)), x_coord,
                             y_coord, x_next, y_next)
 
+
+                        #lim1 = line_width/2
+                        #if line_width % 2 == 0:
+                        #    lim2 = lim1
+                        #else:
+                        #    lim2 = lim1 - 1
+                        #for x_inc in range(int(lim1+lim2)):
+                        #    for y_inc in range(int(lim1+lim2)):
+                        #        trace_between_array[x_coord - x_inc,y_coord - y_inc] = 1
 
                         line_coords = np.argwhere(trace_between_array == 1)
                         #print(line_coords)
@@ -136,7 +164,6 @@ def convert_to_png(folder_loc):
                                 print(line_coords[j])
                                 joining_x, joining_y = line_coords[j,0], line_coords[j,1]
                                 pix_array[joining_x, joining_y] = [colour_r, colour_g, colour_b]
-
 
                         pix_array[x_coord, y_coord] = [colour_r, colour_g, colour_b]
 
@@ -154,8 +181,8 @@ def convert_to_png(folder_loc):
                     im = Image.fromarray(pix_array)
                     im.save(new_path + '/' + filename + '.png')
 
-                    #plt.imshow(pix_array)  #unhash to review png's while processing
-                    #plt.show()             #unhash to review png's while processing
+                    plt.imshow(pix_array)  #unhash to review png's while processing
+                    plt.show()             #unhash to review png's while processing
                 except StopIteration:
                     print("empty file encountered: " + str(file))
 
