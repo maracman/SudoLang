@@ -2,6 +2,7 @@ import os
 import colorsys
 import sys
 import numpy as np
+import pandas as pd
 import math
 from datetime import date
 from PIL import Image
@@ -12,7 +13,7 @@ divide_resolution = 1
 acc_curve = 8
 line_width = 6
 accel_channels = 2
-HSV = True
+HSV = False
 click_batch = 1
 
 
@@ -159,24 +160,33 @@ def draw_line(mat, x0, y0, x1, y1, inplace=False):
 
 def calculate_max_vel(folder_loc):
     max_velocity=0
+    mean_vel_array = []
+
     for root,dirs,files in os.walk(folder_loc):
         for file in files:
-
             if file.endswith(".csv"):
                 try:
                     #print(os.path.join(folder_loc, file))
                     f=open(os.path.join(folder_loc, file), 'r')
                     file_info = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
                     velocity, acceleration = acc_vel_array(file_info, acc_curve)
-
+                    vel_array = []
                     for i in range(acc_curve, len(file_info), 1):
                         new_velocity = velocity[i]
                         if new_velocity >= max_velocity:
                             max_velocity = new_velocity
+                        if new_velocity != 0:
+                            vel_array.append(new_velocity)
+                    Except = False
                 except IOError:
                     print("couldn't load file")
+                    Except = True
+            if not Except:
+                mean_vel = sum(vel_array)/len(vel_array)
+                mean_vel_array.append(mean_vel)
 
-    return max_velocity
+    total_mean_vel = sum(mean_vel_array)/len(mean_vel_array)
+    return max_velocity, total_mean_vel
 
 
 def convert_to_png(folder_loc, max_vel):
@@ -263,12 +273,15 @@ def convert_to_png(folder_loc, max_vel):
 # run program
 
 directory = get_path()
-maximum_velocity_incorrect = calculate_max_vel(directory + "incorrect")
+maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 
-maximum_velocity_correct = calculate_max_vel(directory + "correct")
+maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
 print(maximum_velocity_total)
+print("velocity mean incorrect " + str(mean_vel_incorrect))
+print("velocity mean correct " + str(mean_vel_correct))
+
 incorrect_location = directory + "incorrect"
 correct_location = directory + "correct"
-convert_to_png(correct_location, maximum_velocity_total)
-convert_to_png(incorrect_location, maximum_velocity_total)
+#convert_to_png(correct_location, maximum_velocity_total)
+#convert_to_png(incorrect_location, maximum_velocity_total)
