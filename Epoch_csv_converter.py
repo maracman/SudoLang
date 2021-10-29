@@ -8,14 +8,17 @@ from datetime import date
 from PIL import Image
 from pathlib import Path
 import matplotlib.pyplot as plt
+from operator import is_
+
 
 divide_resolution = 1
+framerate = 60
 acc_curve = 8
 line_width = 6
 accel_channels = 2
 HSV = False
 click_batch = 1
-
+direction_segments = 8 #2 = 8 groups, 3 = 16 groups
 
 def get_path():
     operating_system = sys.platform
@@ -68,18 +71,14 @@ def convert_to_rgb(c, vel, max_vel): #convert time information into unique RGB d
             g = round(math.floor(vel / 256) % 256)
             b = vel % 256
     else:
-        #print("c " + str(c))
         h = round(c / 15 * 360) % 360  #sets how many scods in th epoch can be differentiated
-        #print('h '+ str(h))
         s = round(int((vel/max_vel) * 100))
         v = round(int((vel/max_vel) * 100))
         if s < 5:
             s = 5
         if v < 5:
             v = 5
-        print(s)
         rgb = colorsys.hsv_to_rgb((h/360.0),(s/100.0),(v/100.0))
-        print(rgb)
         r = rgb[0] * 256
         g = rgb[1] * 256
         b = rgb[2] * 256
@@ -95,16 +94,64 @@ def countdown_convert(mouse_timing): #creates rgb consistent relative to final c
     return countdown_array
 
 def acc_vel_array(xy_pos, curve):
-    xy_pos_diff = np.roll(xy_pos, curve)
-    vel_x = (xy_pos['x_pos'] - xy_pos_diff['x_pos'])/curve
-    vel_y = (xy_pos['y_pos'] - xy_pos_diff['y_pos'])/curve
+    xy_pos_rolled = np.roll(xy_pos, curve)
+    vel_x = (xy_pos['x_pos'] - xy_pos_rolled['x_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
+    vel_y = (xy_pos['y_pos'] - xy_pos_rolled['y_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
+
+
+    #fix last to first rollover error
+    for i in range(curve):
+        vel_x[i] = np.subtract(xy_pos['x_pos'], np.roll(xy_pos['x_pos'], i))[i]/i
+        vel_y[i] = np.subtract(xy_pos['y_pos'], np.roll(xy_pos['y_pos'], i))[i]/i
+    vel_x[0] = 0
+    vel_y[0] = 0
+
+    x_diff1 = np.roll(np.append(np.diff(xy_pos['x_pos']), 0), 1)
+    y_diff1 = np.roll(np.append(np.diff(xy_pos['y_pos']), 0), 1)
+    x_diff2 = xy_pos['x_pos'] - np.roll(xy_pos['x_pos'],2)
+    y_diff2 = xy_pos['y_pos'] - np.roll(xy_pos['y_pos'],2)
+    x_diff2[0:2] = 0
+    y_diff2[0:2] = 0
+    x_diff3 = xy_pos['x_pos'] - np.roll(xy_pos['x_pos'],3)
+    y_diff3 = xy_pos['y_pos'] - np.roll(xy_pos['y_pos'],3)
+    x_diff3[0:3] = 0
+    y_diff3[0:3] = 0
+
+    #determine direction at highest resolution possible
+    direction_loose = np.degrees(np.arctan(vel_y/vel_x))
+    add_ar_loose = np.where(vel_x < 0, 180, np.where(vel_x > 0, 90, 0))
+    direction_loose = np.floor(np.add(add_ar_loose, direction_loose))
+    add_ar_tight1 = np.where(x_diff1 < 0, 180, np.where(x_diff1 > 0, 90, 0))
+    direction_tight1 = np.degrees(np.arctan(y_diff1 / x_diff1))
+    direction_tight1 = np.add(add_ar_tight1, direction_tight1)
+    add_ar_tight2 = np.where(x_diff2 < 0, 180, np.where(x_diff2 > 0, 90, 0))
+    direction_tight2 = np.degrees(np.arctan(y_diff2 / x_diff2))
+    direction_tight2 = np.add(add_ar_tight2, direction_tight2)
+    add_ar_tight3 = np.where(x_diff3 < 0, 180, np.where(x_diff3 > 0, 90, 0))
+    direction_tight3 = np.degrees(np.arctan(y_diff3 / x_diff3))
+    direction_tight3 = np.add(add_ar_tight3, direction_tight3)
+    direction_best = np.nan_to_num(direction_tight1, nan=np.nan_to_num(direction_tight2, nan= np.nan_to_num(direction_tight3, nan = direction_loose)))
+
+    #calculate velocity
     vel_list = []
     for i in range(len(vel_x)):
         distance = float(math.sqrt(vel_x[i]**2 + vel_y[i]**2))
         vel_list.append(distance)
     vel = np.array(vel_list)
-    acc = np.diff(vel)
-    return vel, acc
+    acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
+
+    #save useful info to dataframe
+    epoch_df = pd.DataFrame(
+        {'x_pos': xy_pos['x_pos'],
+         'y_pos': xy_pos['y_pos'],
+         'time': xy_pos['time'],
+         'velocity': vel,
+         'direction_loose'+ '_' + str(curve): direction_loose,
+         'direction_tight1': direction_tight1,
+         'direction_tight2': direction_tight2,
+         'direction_best': direction_best
+         })
+    return vel, acc, epoch_df
 
 def velocity_to_r(vel):
         r = vel * 5
@@ -159,32 +206,30 @@ def draw_line(mat, x0, y0, x1, y1, inplace=False):
 
 
 def calculate_max_vel(folder_loc):
-    max_velocity=0
+    max_vel_arr = []
     mean_vel_array = []
 
     for root,dirs,files in os.walk(folder_loc):
         for file in files:
+
             if file.endswith(".csv"):
                 try:
-                    #print(os.path.join(folder_loc, file))
                     f=open(os.path.join(folder_loc, file), 'r')
                     file_info = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
-                    velocity, acceleration = acc_vel_array(file_info, acc_curve)
-                    vel_array = []
-                    for i in range(acc_curve, len(file_info), 1):
-                        new_velocity = velocity[i]
-                        if new_velocity >= max_velocity:
-                            max_velocity = new_velocity
-                        if new_velocity != 0:
-                            vel_array.append(new_velocity)
+                    velocity, acceleration, epoch_info = acc_vel_array(file_info, acc_curve)
+                    max_velocity = np.max(velocity)
+                    mean_vel = np.mean(velocity[np.nonzero(velocity)])
+
+
                     Except = False
                 except IOError:
                     print("couldn't load file")
                     Except = True
             if not Except:
-                mean_vel = sum(vel_array)/len(vel_array)
                 mean_vel_array.append(mean_vel)
+                max_vel_arr.append(max_velocity)
 
+    max_velocity = np.max(max_vel_arr)
     total_mean_vel = sum(mean_vel_array)/len(mean_vel_array)
     return max_velocity, total_mean_vel
 
@@ -202,20 +247,15 @@ def convert_to_png(folder_loc, max_vel):
 
                     pix_array = np.zeros((round(600/divide_resolution)+1, round(800/divide_resolution)+1, 3), dtype=np.uint8)
                     countdown_array = countdown_convert(file_info['time'])
-                    velocity, acceleration = acc_vel_array(file_info, acc_curve)
+                    velocity, acceleration, epoch = acc_vel_array(file_info, acc_curve)
 
-                    #print(countdown_array)
 
                     for i in range(acc_curve, len(file_info), 1):
                         colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i], velocity[i], max_vel) #time to rgb
 
-
-
                         #colour_g, colour_b = convert_to_gb(countdown_array[i]) #time to green/blue
                         #colour_g = 150
                         #colour_b = 150
-                        print(velocity[i])
-                        #print(velocity[i])
                         #colour_r = velocity_to_r(velocity[i]) #velocity to red
 
                         x_coord = round(int(file_info[i][1])/divide_resolution)
@@ -250,9 +290,6 @@ def convert_to_png(folder_loc, max_vel):
                         pix_array[x_coord, y_coord] = [colour_r, colour_g, colour_b]
 
 
-
-
-
                     #create png folder
                     day_today = date.today().strftime("%Y-%m-%d")
                     new_path = os.path.join(folder_loc, day_today + "_PNGconvert")
@@ -271,7 +308,7 @@ def convert_to_png(folder_loc, max_vel):
                 f.close()
 
 # run program
-
+maximum_velocity_total = 100
 directory = get_path()
 maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 
@@ -283,5 +320,5 @@ print("velocity mean correct " + str(mean_vel_correct))
 
 incorrect_location = directory + "incorrect"
 correct_location = directory + "correct"
-#convert_to_png(correct_location, maximum_velocity_total)
-#convert_to_png(incorrect_location, maximum_velocity_total)
+convert_to_png(correct_location, maximum_velocity_total)
+convert_to_png(incorrect_location, maximum_velocity_total)
