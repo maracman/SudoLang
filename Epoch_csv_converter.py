@@ -1,5 +1,6 @@
 import os
 import colorsys
+import re
 import sys
 import numpy as np
 import pandas as pd
@@ -18,7 +19,7 @@ line_width = 6
 accel_channels = 2
 HSV = False
 click_batch = 1
-direction_segments = 8 #2 = 8 groups, 3 = 16 groups
+direction_segments = 8 #must be greater than 2
 
 def get_path():
     operating_system = sys.platform
@@ -71,7 +72,7 @@ def convert_to_rgb(c, vel, max_vel): #convert time information into unique RGB d
             g = round(math.floor(vel / 256) % 256)
             b = vel % 256
     else:
-        h = round(c / 15 * 360) % 360  #sets how many scods in th epoch can be differentiated
+        h = round(c / 15 * 360) % 360
         s = round(int((vel/max_vel) * 100))
         v = round(int((vel/max_vel) * 100))
         if s < 5:
@@ -92,6 +93,33 @@ def countdown_convert(mouse_timing): #creates rgb consistent relative to final c
         new_time = max_time - mouse_timing[i]
         countdown_array.append(new_time)
     return countdown_array
+
+def create_profile(folder_location): #(batch_size, sample_size, folder_location, random=False): #scope can be player or session
+    for root,dirs,files in os.walk(folder_location):
+        #print(root)
+        sessions = []
+        file_counts = []
+        if re.match(r'.*/id_\w+(?!\/)+$', str(root)):
+            user_path = root
+            for dir in dirs:
+                print(dir)
+                if dir.startswith('session_'):
+                    print(dir)
+                    file_count = 0
+                    for file in files:
+                        print(file)
+                        file_count += 1
+
+                        if file.endswith('.csv'):
+                            print('yay')
+                            file_count += 1
+                    sessions.append(str(dir))
+                    file_counts.append(int(file_count))
+
+        session_counts = list(zip(file_counts, sessions))
+    return sessions
+
+
 
 def acc_vel_array(xy_pos, curve):
     xy_pos_rolled = np.roll(xy_pos, curve)
@@ -119,15 +147,15 @@ def acc_vel_array(xy_pos, curve):
 
     #determine direction at highest resolution possible
     direction_loose = np.degrees(np.arctan(vel_y/vel_x))
-    add_ar_loose = np.where(vel_x < 0, 180, np.where(vel_x > 0, 90, 0))
+    add_ar_loose = np.where(vel_x < 0, 270, np.where(vel_x > 0, 90, 0))
     direction_loose = np.floor(np.add(add_ar_loose, direction_loose))
-    add_ar_tight1 = np.where(x_diff1 < 0, 180, np.where(x_diff1 > 0, 90, 0))
+    add_ar_tight1 = np.where(x_diff1 < 0, 270, np.where(x_diff1 > 0, 90, 0))
     direction_tight1 = np.degrees(np.arctan(y_diff1 / x_diff1))
     direction_tight1 = np.add(add_ar_tight1, direction_tight1)
-    add_ar_tight2 = np.where(x_diff2 < 0, 180, np.where(x_diff2 > 0, 90, 0))
+    add_ar_tight2 = np.where(x_diff2 < 0, 270, np.where(x_diff2 > 0, 90, 0))
     direction_tight2 = np.degrees(np.arctan(y_diff2 / x_diff2))
     direction_tight2 = np.add(add_ar_tight2, direction_tight2)
-    add_ar_tight3 = np.where(x_diff3 < 0, 180, np.where(x_diff3 > 0, 90, 0))
+    add_ar_tight3 = np.where(x_diff3 < 0, 270, np.where(x_diff3 > 0, 90, 0))
     direction_tight3 = np.degrees(np.arctan(y_diff3 / x_diff3))
     direction_tight3 = np.add(add_ar_tight3, direction_tight3)
     direction_best = np.nan_to_num(direction_tight1, nan=np.nan_to_num(direction_tight2, nan= np.nan_to_num(direction_tight3, nan = direction_loose)))
@@ -140,6 +168,14 @@ def acc_vel_array(xy_pos, curve):
     vel = np.array(vel_list)
     acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
 
+    #create direction categories
+    category_splits = [0, 360/direction_segments]
+    category_names = [1]
+    for i in range(direction_segments-1):
+        new_category = category_splits[i+1] + 360/direction_segments
+        category_splits.append(new_category)
+        category_names.append(i+2)
+
     #save useful info to dataframe
     epoch_df = pd.DataFrame(
         {'x_pos': xy_pos['x_pos'],
@@ -149,9 +185,14 @@ def acc_vel_array(xy_pos, curve):
          'direction_loose'+ '_' + str(curve): direction_loose,
          'direction_tight1': direction_tight1,
          'direction_tight2': direction_tight2,
-         'direction_best': direction_best
+         'direction_best': direction_best,
          })
-    return vel, acc, epoch_df
+
+    direction_cat_name = 'direction_slice_' + str(direction_segments)
+    epoch_df[str(direction_cat_name)] = pd.cut(epoch_df['direction_loose'+ '_' + str(curve)], category_splits, labels=category_names)
+    direction_means = epoch_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+
+    return vel, acc, epoch_df, direction_means
 
 def velocity_to_r(vel):
         r = vel * 5
@@ -216,10 +257,9 @@ def calculate_max_vel(folder_loc):
                 try:
                     f=open(os.path.join(folder_loc, file), 'r')
                     file_info = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
-                    velocity, acceleration, epoch_info = acc_vel_array(file_info, acc_curve)
+                    velocity, acceleration, epoch_info, means = acc_vel_array(file_info, acc_curve)
                     max_velocity = np.max(velocity)
                     mean_vel = np.mean(velocity[np.nonzero(velocity)])
-
 
                     Except = False
                 except IOError:
@@ -247,16 +287,13 @@ def convert_to_png(folder_loc, max_vel):
 
                     pix_array = np.zeros((round(600/divide_resolution)+1, round(800/divide_resolution)+1, 3), dtype=np.uint8)
                     countdown_array = countdown_convert(file_info['time'])
-                    velocity, acceleration, epoch = acc_vel_array(file_info, acc_curve)
+                    velocity, acceleration, epoch, means = acc_vel_array(file_info, acc_curve)
 
+                    print(epoch[['direction_loose_8', 'direction_slice_8', 'velocity']])
+                    print(means)
 
                     for i in range(acc_curve, len(file_info), 1):
                         colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i], velocity[i], max_vel) #time to rgb
-
-                        #colour_g, colour_b = convert_to_gb(countdown_array[i]) #time to green/blue
-                        #colour_g = 150
-                        #colour_b = 150
-                        #colour_r = velocity_to_r(velocity[i]) #velocity to red
 
                         x_coord = round(int(file_info[i][1])/divide_resolution)
                         y_coord = round(int(file_info[i][0])/divide_resolution)
@@ -268,19 +305,8 @@ def convert_to_png(folder_loc, max_vel):
                             np.zeros((round(600 / divide_resolution) + line_width, round(800 / divide_resolution) + line_width)), x_coord,
                             y_coord, x_next, y_next)
 
-
-                        #lim1 = line_width/2
-                        #if line_width % 2 == 0:
-                        #    lim2 = lim1
-                        #else:
-                        #    lim2 = lim1 - 1
-                        #for x_inc in range(int(lim1+lim2)):
-                        #    for y_inc in range(int(lim1+lim2)):
-                        #        trace_between_array[x_coord - x_inc,y_coord - y_inc] = 1
-
                         line_coords = np.argwhere(trace_between_array == 1)
-                        #print(line_coords)
-
+                        #print(epoch)
 
                         for j in range(len(line_coords)):
                             if np.nonzero(line_coords[j]):
@@ -310,15 +336,17 @@ def convert_to_png(folder_loc, max_vel):
 # run program
 maximum_velocity_total = 100
 directory = get_path()
-maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
+#maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 
-maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
-maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
-print(maximum_velocity_total)
-print("velocity mean incorrect " + str(mean_vel_incorrect))
-print("velocity mean correct " + str(mean_vel_correct))
+#maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
+#maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
+#print(maximum_velocity_total)
+#print("velocity mean incorrect " + str(mean_vel_incorrect))
+#print("velocity mean correct " + str(mean_vel_correct))
 
-incorrect_location = directory + "incorrect"
-correct_location = directory + "correct"
-convert_to_png(correct_location, maximum_velocity_total)
-convert_to_png(incorrect_location, maximum_velocity_total)
+#incorrect_location = directory + "incorrect"
+#correct_location = directory + "correct"
+#convert_to_png(correct_location, maximum_velocity_total)
+#convert_to_png(incorrect_location, maximum_velocity_total)
+folders = create_profile(str(directory + 'id_Marcus_collect' ))
+print(folders)
