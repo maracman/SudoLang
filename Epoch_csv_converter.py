@@ -11,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from operator import is_
 
-
+epoch_categories = ["correct", "incorrect"]
 divide_resolution = 1
 framerate = 60
 acc_curve = 8
@@ -29,7 +29,7 @@ def get_path():
     else:
         dir_path = os.getcwd()
 
-    return_path = os.path.join(dir_path, 'outputs/mouse_coords/')
+    return_path = os.path.join(dir_path, 'outputs/demo_folder_structure_(not_for_training)/mouse_tracking/')
     return return_path
 
 def hsv_to_rgb(h, s, v):
@@ -95,29 +95,54 @@ def countdown_convert(mouse_timing): #creates rgb consistent relative to final c
     return countdown_array
 
 def create_profile(folder_location): #(batch_size, sample_size, folder_location, random=False): #scope can be player or session
-    for root,dirs,files in os.walk(folder_location):
-        #print(root)
-        sessions = []
-        file_counts = []
-        if re.match(r'.*/id_\w+(?!\/)+$', str(root)):
-            user_path = root
+    user_path = []
+    user_ID = []
+    session = []
+    label = []
+    sequence_no = []
+    file_name = []
+
+    for directories in os.walk(directory):
+        print(directories)
+
+    print('.')
+    user_id_path = []
+    user_session = []
+    for roots, dirs, files in os.walk(directory):
+        if re.match('/.*id_\w+(?!\/)+$', str(roots)):
             for dir in dirs:
-                print(dir)
                 if dir.startswith('session_'):
-                    print(dir)
-                    file_count = 0
-                    for file in files:
+                    user_id_path.append(roots)
+                    user_session.append(dir)
+
+    for i in range(len(user_id_path)):
+        for category in epoch_categories:
+            directory2 = str(user_id_path[i]) + '/' + str(user_session[i] + '/' + str(category))
+            for roots, dirs, files in os.walk(directory2):
+                for file in files:
+                    if file.endswith('.csv'):
+                        file_name.append(file)
+                        user_path.append(user_id_path[i])
+                        session.append(user_session[i])
+                        label.append(category)
+                        user = re.findall("(?<=id_)\w+$", str(user_id_path[i]))
+                        user_ID.append(user)
+                        print(user)
                         print(file)
-                        file_count += 1
 
-                        if file.endswith('.csv'):
-                            print('yay')
-                            file_count += 1
-                    sessions.append(str(dir))
-                    file_counts.append(int(file_count))
 
-        session_counts = list(zip(file_counts, sessions))
-    return sessions
+                        sequence = str(re.findall("(?<=%s[_])\d+" %str(user), str(file)))
+
+                        sequence = re.sub(r'0+(.+)', r'\1', str(sequence))
+
+                        print(sequence)
+                        sequence_no.append(sequence)
+
+
+    file_index = pd.DataFrame(
+        {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no,
+        'file_name': file_name})
+    print(file_index['sequence_no'])
 
 
 
@@ -348,5 +373,5 @@ directory = get_path()
 #correct_location = directory + "correct"
 #convert_to_png(correct_location, maximum_velocity_total)
 #convert_to_png(incorrect_location, maximum_velocity_total)
-folders = create_profile(str(directory + 'id_Marcus_collect' ))
+folders = create_profile(directory)
 print(folders)
