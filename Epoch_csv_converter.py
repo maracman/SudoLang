@@ -18,11 +18,12 @@ framerate = 60
 acc_curve = 8
 line_width = 6
 accel_channels = 2
-user = 'Dave'
+user = 'Marcus'
 HSV = False
 click_batch = 1
-sample_size = 77 #number of files used to create user profile
-direction_segments = 8 #must be greater than 2
+profiling_label = "correct"
+sample_size = 100 #number of files used to create user profile (recommended 100)
+direction_segments = 12 #must be greater than 2
 
 def get_path():
     operating_system = sys.platform
@@ -143,7 +144,7 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
 
     return file_index
 
-def user_profile(file_index, user_name):
+def user_profile(file_index, user_name, label):
     curve = acc_curve
     vel_list = []
     direction_best_append = []
@@ -151,8 +152,8 @@ def user_profile(file_index, user_name):
     x_pos_append = []
     y_pos_append = []
     time_append = []
-    files = file_index[(file_index["user_ID"] == user_name)]["file_path"].tolist()
-    print(str(len(files)) + ' total files for ' + str(user_name))
+    files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label)]["file_path"].tolist()
+    print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
     sample = sample_size
     if sample > len(files):
         sample = len(files)
@@ -238,6 +239,48 @@ def user_profile(file_index, user_name):
     direction_means = epochs_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
     return direction_means
+
+def draw_profile(incorrect_vel, correct_vel):
+    x_list = []
+    y_list = []
+    x1_list = []
+    y1_list = []
+    for i in range(direction_segments):
+        angle = (i * 360/direction_segments) + (360/direction_segments/2)
+        angle = np.radians(angle)
+        y_list.append(np.cos(angle) * incorrect_vel["velocity"][i])
+        x_list.append(np.sin(angle) * incorrect_vel["velocity"][i])
+
+
+    x_list = [*x_list, x_list[0]]
+    y_list = [*y_list, y_list[0]]
+
+
+    for i in range(direction_segments):
+        angle = (i * 360 / direction_segments) + (360 / direction_segments / 2)
+        angle = np.radians(angle)
+        y1_list.append(np.cos(angle) * correct_vel["velocity"][i])
+        x1_list.append(np.sin(angle) * correct_vel["velocity"][i])
+
+
+
+    x1_list = [*x1_list, x1_list[0]]
+    y1_list = [*y1_list, y1_list[0]]
+
+
+    plt.plot(x1_list, y1_list, color='blue', label="correct")
+    plt.plot(x_list, y_list, color='red', label="incorrect")
+
+
+
+
+    print(x_list)
+    print(y_list)
+
+    #plt.plot(x_list, y_list, 'ro')
+    #plt.axis('equal')
+    plt.show()
+
 
 def acc_vel_array(xy_pos, curve):
     xy_pos_rolled = np.roll(xy_pos, curve)
@@ -456,17 +499,15 @@ def convert_to_png(folder_loc, max_vel):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory)
-new_profile = user_profile(folders, user)
+correct_velocities = user_profile(folders, user, "correct")
+incorrect_velocities = user_profile(folders, user, "incorrect")
+draw_profile(correct_velocities, incorrect_velocities)
 #maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
-print(new_profile)
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
-#print(maximum_velocity_total)
-#print("velocity mean incorrect " + str(mean_vel_incorrect))
-#print("velocity mean correct " + str(mean_vel_correct))
 
-#incorrect_location = directory + "incorrect"
-#correct_location = directory + "correct"
+
+
 #convert_to_png(correct_location, maximum_velocity_total)
 #convert_to_png(incorrect_location, maximum_velocity_total)
 #print(folders)
