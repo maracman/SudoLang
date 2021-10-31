@@ -94,16 +94,13 @@ def countdown_convert(mouse_timing): #creates rgb consistent relative to final c
         countdown_array.append(new_time)
     return countdown_array
 
-def create_profile(folder_location): #(batch_size, sample_size, folder_location, random=False): #scope can be player or session
+def index_files(folder_location): #(batch_size, sample_size, folder_location, random=False): #scope can be player or session
     user_path = []
     user_ID = []
     session = []
     label = []
     sequence_no = []
     file_name = []
-
-    for directories in os.walk(directory):
-        print(directories)
 
     print('.')
     user_id_path = []
@@ -125,24 +122,23 @@ def create_profile(folder_location): #(batch_size, sample_size, folder_location,
                         user_path.append(user_id_path[i])
                         session.append(user_session[i])
                         label.append(category)
-                        user = re.findall("(?<=id_)\w+$", str(user_id_path[i]))
-                        user_ID.append(user)
-                        print(user)
-                        print(file)
+                        user = str(re.findall("(?<=id_)\w+$", str(user_id_path[i])))
+
 
 
                         sequence = str(re.findall("(?<=%s[_])\d+" %str(user), str(file)))
+                        sequence = sequence.lstrip("['").strip("']")
+                        sequence = int(sequence)
+                        user = user.lstrip("['").strip("']")
 
-                        sequence = re.sub(r'0+(.+)', r'\1', str(sequence))
-
-                        print(sequence)
+                        user_ID.append(user)
                         sequence_no.append(sequence)
-
 
     file_index = pd.DataFrame(
         {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no,
         'file_name': file_name})
-    print(file_index['sequence_no'])
+
+    return file_index
 
 
 
@@ -361,6 +357,8 @@ def convert_to_png(folder_loc, max_vel):
 # run program
 maximum_velocity_total = 100
 directory = get_path()
+folders = index_files(directory)
+
 #maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
@@ -373,5 +371,4 @@ directory = get_path()
 #correct_location = directory + "correct"
 #convert_to_png(correct_location, maximum_velocity_total)
 #convert_to_png(incorrect_location, maximum_velocity_total)
-folders = create_profile(directory)
 print(folders)
