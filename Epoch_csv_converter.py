@@ -10,6 +10,7 @@ from PIL import Image
 from pathlib import Path
 import matplotlib.pyplot as plt
 from operator import is_
+import random
 
 epoch_categories = ["correct", "incorrect"]
 divide_resolution = 1
@@ -17,8 +18,10 @@ framerate = 60
 acc_curve = 8
 line_width = 6
 accel_channels = 2
+user = 'Dave'
 HSV = False
 click_batch = 1
+sample_size = 77 #number of files used to create user profile
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -101,6 +104,7 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
     label = []
     sequence_no = []
     file_name = []
+    epoch_path = []
 
     print('.')
     user_id_path = []
@@ -122,10 +126,9 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
                         user_path.append(user_id_path[i])
                         session.append(user_session[i])
                         label.append(category)
+                        file_path = str(directory2) + '/' + str(file)
+                        epoch_path.append(file_path)
                         user = str(re.findall("(?<=id_)\w+$", str(user_id_path[i])))
-
-
-
                         sequence = str(re.findall("(?<=%s[_])\d+" %str(user), str(file)))
                         sequence = sequence.lstrip("['").strip("']")
                         sequence = int(sequence)
@@ -135,12 +138,106 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
                         sequence_no.append(sequence)
 
     file_index = pd.DataFrame(
-        {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no,
+        {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no, 'file_path': epoch_path,
         'file_name': file_name})
 
     return file_index
 
+def user_profile(file_index, user_name):
+    curve = acc_curve
+    vel_list = []
+    direction_best_append = []
+    direction_loose_append = []
+    x_pos_append = []
+    y_pos_append = []
+    time_append = []
+    files = file_index[(file_index["user_ID"] == user_name)]["file_path"].tolist()
+    print(str(len(files)) + ' total files for ' + str(user_name))
+    sample = sample_size
+    if sample > len(files):
+        sample = len(files)
+    files = random.sample(files, sample)
+    print(files)
+    for file in files:
+        f = open(file, 'r')
+        xy_pos = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
+        xy_pos_rolled = np.roll(xy_pos, curve)
+        vel_x = (xy_pos['x_pos'] - xy_pos_rolled['x_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
+        vel_y = (xy_pos['y_pos'] - xy_pos_rolled['y_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
+    
+    
+        #fix last to first rollover error
+        for i in range(curve):
+            vel_x[i] = np.subtract(xy_pos['x_pos'], np.roll(xy_pos['x_pos'], i))[i]/i
+            vel_y[i] = np.subtract(xy_pos['y_pos'], np.roll(xy_pos['y_pos'], i))[i]/i
+        vel_x[0] = 0
+        vel_y[0] = 0
+    
+        x_diff1 = np.roll(np.append(np.diff(xy_pos['x_pos']), 0), 1)
+        y_diff1 = np.roll(np.append(np.diff(xy_pos['y_pos']), 0), 1)
+        x_diff2 = xy_pos['x_pos'] - np.roll(xy_pos['x_pos'],2)
+        y_diff2 = xy_pos['y_pos'] - np.roll(xy_pos['y_pos'],2)
+        x_diff2[0:2] = 0
+        y_diff2[0:2] = 0
+        x_diff3 = xy_pos['x_pos'] - np.roll(xy_pos['x_pos'],3)
+        y_diff3 = xy_pos['y_pos'] - np.roll(xy_pos['y_pos'],3)
+        x_diff3[0:3] = 0
+        y_diff3[0:3] = 0
+    
+        #determine direction at highest resolution possible
+        direction_loose = np.degrees(np.arctan(vel_y/vel_x))
+        add_ar_loose = np.where(vel_x < 0, 270, np.where(vel_x > 0, 90, 0))
+        direction_loose = np.floor(np.add(add_ar_loose, direction_loose))
+        add_ar_tight1 = np.where(x_diff1 < 0, 270, np.where(x_diff1 > 0, 90, 0))
+        direction_tight1 = np.degrees(np.arctan(y_diff1 / x_diff1))
+        direction_tight1 = np.add(add_ar_tight1, direction_tight1)
+        add_ar_tight2 = np.where(x_diff2 < 0, 270, np.where(x_diff2 > 0, 90, 0))
+        direction_tight2 = np.degrees(np.arctan(y_diff2 / x_diff2))
+        direction_tight2 = np.add(add_ar_tight2, direction_tight2)
+        add_ar_tight3 = np.where(x_diff3 < 0, 270, np.where(x_diff3 > 0, 90, 0))
+        direction_tight3 = np.degrees(np.arctan(y_diff3 / x_diff3))
+        direction_tight3 = np.add(add_ar_tight3, direction_tight3)
+        direction_best = np.nan_to_num(direction_tight1, nan=np.nan_to_num(direction_tight2, nan= np.nan_to_num(direction_tight3, nan = direction_loose)))
+    
+        #calculate velocity
+        for i in range(len(vel_x)):
+            distance = float(math.sqrt(vel_x[i]**2 + vel_y[i]**2))
+            vel_list.append(distance)
+        vel = np.array(vel_list)
+        acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
 
+
+        direction_best_append = [*direction_best_append, *direction_best]
+        direction_loose_append = [*direction_loose_append, *direction_loose]
+        x_pos_append = [*x_pos_append, *xy_pos['x_pos']]
+        y_pos_append = [*y_pos_append, *xy_pos['y_pos']]
+        time_append = [*time_append, *xy_pos['time']]
+
+
+    #save useful info to dataframe
+    epochs_df = pd.DataFrame(
+        {'x_pos': x_pos_append,
+         'y_pos': y_pos_append,
+         'time': time_append,
+         'velocity': vel,
+         'direction_loose'+ '_' + str(curve): direction_loose_append,
+         'direction_best': direction_best_append,
+         })
+
+    #create direction categories
+    category_splits = [0, 360/direction_segments]
+    category_names = [1]
+    for i in range(direction_segments-1):
+        new_category = category_splits[i+1] + 360/direction_segments
+        category_splits.append(new_category)
+        category_names.append(i+2)
+
+        direction_cat_name = 'direction_slice_' + str(direction_segments)
+        epochs_df[str(direction_cat_name)] = pd.cut(epochs_df['direction_loose'+ '_' + str(curve)], category_splits, labels=category_names)
+    
+    direction_means = epochs_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+
+    return direction_means
 
 def acc_vel_array(xy_pos, curve):
     xy_pos_rolled = np.roll(xy_pos, curve)
@@ -206,9 +303,10 @@ def acc_vel_array(xy_pos, curve):
          'direction_loose'+ '_' + str(curve): direction_loose,
          'direction_tight1': direction_tight1,
          'direction_tight2': direction_tight2,
-         'direction_best': direction_best,
+         'direction_best': direction_best
          })
 
+    # directions into categories by splitting into buckets
     direction_cat_name = 'direction_slice_' + str(direction_segments)
     epoch_df[str(direction_cat_name)] = pd.cut(epoch_df['direction_loose'+ '_' + str(curve)], category_splits, labels=category_names)
     direction_means = epoch_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
@@ -358,9 +456,9 @@ def convert_to_png(folder_loc, max_vel):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory)
-
+new_profile = user_profile(folders, user)
 #maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
-
+print(new_profile)
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
 #print(maximum_velocity_total)
@@ -371,4 +469,4 @@ folders = index_files(directory)
 #correct_location = directory + "correct"
 #convert_to_png(correct_location, maximum_velocity_total)
 #convert_to_png(incorrect_location, maximum_velocity_total)
-print(folders)
+#print(folders)
