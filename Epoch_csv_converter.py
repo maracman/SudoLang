@@ -18,10 +18,10 @@ framerate = 60
 acc_curve = 8
 line_width = 6
 accel_channels = 2
-user = 'Marcus'
+user = 'Dave'
 HSV = False
 click_batch = 1
-profiling_label = "correct"
+profiling_label = user
 sample_size = 100 #number of files used to create user profile (recommended 100)
 direction_segments = 12 #must be greater than 2
 
@@ -147,11 +147,13 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
 def user_profile(file_index, user_name, label):
     curve = acc_curve
     vel_list = []
+    heat_map_click = []
     direction_best_append = []
     direction_loose_append = []
     x_pos_append = []
     y_pos_append = []
     time_append = []
+    final_click_pos = []
     files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label)]["file_path"].tolist()
     print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
     sample = sample_size
@@ -162,11 +164,22 @@ def user_profile(file_index, user_name, label):
     for file in files:
         f = open(file, 'r')
         xy_pos = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
+
+
+
+        #calculate loose velocity
         xy_pos_rolled = np.roll(xy_pos, curve)
         vel_x = (xy_pos['x_pos'] - xy_pos_rolled['x_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
         vel_y = (xy_pos['y_pos'] - xy_pos_rolled['y_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
-    
-    
+
+        # last mouse posistion aka click
+        click_pos = int(xy_pos['x_pos'][len(xy_pos)-1]), int(xy_pos['y_pos'][len(xy_pos)-1])
+        heat_map_click.append(click_pos)
+        click_pos_list = [click_pos] * len(xy_pos)
+        final_click_pos = [*final_click_pos, *click_pos_list]
+
+
+
         #fix last to first rollover error
         for i in range(curve):
             vel_x[i] = np.subtract(xy_pos['x_pos'], np.roll(xy_pos['x_pos'], i))[i]/i
@@ -208,6 +221,8 @@ def user_profile(file_index, user_name, label):
         acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
 
 
+
+
         direction_best_append = [*direction_best_append, *direction_best]
         direction_loose_append = [*direction_loose_append, *direction_loose]
         x_pos_append = [*x_pos_append, *xy_pos['x_pos']]
@@ -223,6 +238,7 @@ def user_profile(file_index, user_name, label):
          'velocity': vel,
          'direction_loose'+ '_' + str(curve): direction_loose_append,
          'direction_best': direction_best_append,
+         'click_position': final_click_pos,
          })
 
     #create direction categories
@@ -238,9 +254,9 @@ def user_profile(file_index, user_name, label):
     
     direction_means = epochs_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
-    return direction_means
+    return direction_means, heat_map_click
 
-def draw_profile(incorrect_vel, correct_vel):
+def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrect):
     x_list = []
     y_list = []
     x1_list = []
@@ -263,22 +279,20 @@ def draw_profile(incorrect_vel, correct_vel):
         x1_list.append(np.sin(angle) * correct_vel["velocity"][i])
 
 
-
     x1_list = [*x1_list, x1_list[0]]
     y1_list = [*y1_list, y1_list[0]]
-
 
     plt.plot(x1_list, y1_list, color='blue', label="correct")
     plt.plot(x_list, y_list, color='red', label="incorrect")
 
-
-
-
     print(x_list)
     print(y_list)
 
-    #plt.plot(x_list, y_list, 'ro')
-    #plt.axis('equal')
+    plt.show()
+    i_x_heat, i_y_heat = zip(*heat_map_incorrect)
+    plt.plot(i_x_heat,i_y_heat, 'ro', color='red')
+    c_x_heat, c_y_heat = zip(*heat_map_correct)
+    plt.plot(c_x_heat,c_y_heat, 'ro', color='blue')
     plt.show()
 
 
@@ -499,9 +513,10 @@ def convert_to_png(folder_loc, max_vel):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory)
-correct_velocities = user_profile(folders, user, "correct")
-incorrect_velocities = user_profile(folders, user, "incorrect")
-draw_profile(correct_velocities, incorrect_velocities)
+correct_velocities, heat_map_correct = user_profile(folders, user, "correct")
+incorrect_velocities, heat_map_incorrect = user_profile(folders, user, "incorrect")
+print(heat_map_incorrect)
+draw_profile(correct_velocities, incorrect_velocities, heat_map_correct, heat_map_incorrect)
 #maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
