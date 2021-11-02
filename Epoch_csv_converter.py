@@ -18,6 +18,7 @@ framerate = 60
 acc_curve = 8
 line_width = 6
 res_x = 800
+pause_outlier_thresh = 4 #duration beyond which to not count as a pause
 res_y = 600
 accel_channels = 2
 length_include = 1 #only inlclude files this many seconds or longer
@@ -26,7 +27,7 @@ HSV = False
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 10 #number of files used to create user profile (recommended 100)
+sample_size = 100 #number of files used to create user profile (recommended 100)
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -165,13 +166,15 @@ def is_file_empty(file_path):
     return os.path.exists(file_path) and os.path.getsize(file_path) == 0
 
 def user_profile(file_index, user_name, label):
-
+    pause_amounts = []
+    pause_durations = []
     curve = acc_curve
-    vel_list = []
+    vel_append = []
     heat_map_click = []
     direction_best_append = []
     direction_loose_append = []
     x_pos_append = []
+    filelist_append = []
     y_pos_append = []
     stutters = []
     time_append = []
@@ -205,12 +208,18 @@ def user_profile(file_index, user_name, label):
         vel_x = (xy_pos['x_pos'] - xy_pos_rolled['x_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
         vel_y = (xy_pos['y_pos'] - xy_pos_rolled['y_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
 
-        #calculate velocity
+        vel_list = []
         for i in range(len(vel_x)):
             distance = float(math.sqrt(vel_x[i]**2 + vel_y[i]**2))
             vel_list.append(distance)
-        vel = np.array(vel_list)
-        acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
+        vel_append = [*vel_append, *vel_list]
+        acc = np.roll(np.append(np.diff(vel_list), 0),1) #appends 0 to start of vel diff
+
+        #caulculate pauses
+        pause_list = pause_calculator(vel_list, xy_pos["time"])
+        if len(pause_list) != 0:
+            pause_durations.append(np.mean(pause_list))
+        pause_amounts.append(len(pause_list))
 
         # last mouse posistion aka click
         click_pos = int(xy_pos['x_pos'][len(xy_pos)-1]), int(xy_pos['y_pos'][len(xy_pos)-1])
@@ -259,8 +268,6 @@ def user_profile(file_index, user_name, label):
 
         #calculate stutter
         stutter = np.sum(np.abs((np.subtract(np.nan_to_num(direction_loose, 0), np.nan_to_num(direction_best, 0)))))/len(direction_loose)
-        print(len(direction_loose))
-        print(len(direction_best))
         stutters.append(stutter)
 
         #distance at each point from destination click
@@ -306,6 +313,10 @@ def user_profile(file_index, user_name, label):
         approach_offset = abs(approach_angle - angle_from_center)
         approach_offsets.append(approach_offset)
 
+        #link to file destination
+        filelist = [file] * len(xy_pos)
+        filelist_append = [*filelist_append, *filelist]
+
 
 
     #save useful info to dataframe
@@ -313,11 +324,12 @@ def user_profile(file_index, user_name, label):
         {'x_pos': x_pos_append,
          'y_pos': y_pos_append,
          'time': time_append,
-         'velocity': vel,
+         'velocity': vel_append,
          'direction_loose'+ '_' + str(curve): direction_loose_append,
          'direction_best': direction_best_append,
          'click_position': final_click_pos,
-         'distance_from_click': distance_from_click
+         'distance_from_click': distance_from_click,
+         'file': filelist_append
          })
 
     #create direction categories
@@ -335,7 +347,12 @@ def user_profile(file_index, user_name, label):
     mean_decision_time = np.mean(decision_times)
     mean_approach_offset = np.mean(approach_offsets)
     mean_stutters = np.mean(stutters)
-    return direction_means, heat_map_click, epochs_df, mean_decision_time, mean_approach_offset, mean_stutters
+    mean_pause_duration = np.mean(pause_durations)
+    mean_pause_amount = np.mean(pause_amounts)
+
+    return direction_means, heat_map_click, epochs_df, \
+           mean_decision_time, mean_approach_offset, \
+           mean_stutters, mean_pause_duration, mean_pause_amount
 
 def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrect):
     x_list = []
@@ -372,6 +389,22 @@ def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrec
     c_x_heat, c_y_heat = zip(*heat_map_correct)
     plt.plot(c_x_heat,c_y_heat, 'ro', color='blue')
     plt.show()
+
+def pause_calculator(velocities, time):
+    pauses = []
+    pause_time = 0
+    initial_time = 0
+    for i in range(len(velocities)-1):
+        if velocities[i+1] == 0 and velocities[i] != 0:
+            initial_time = time[i+1]
+        elif velocities[i+1] != 0 and velocities[i] == 0:
+            pause_time = (time[i+1] - initial_time)
+            if pause_time > 0 and pause_time < pause_outlier_thresh:
+                pauses.append(pause_time)
+                pause_time = 0
+        else:
+            pass
+    return pauses
 
 
 def acc_vel_array(xy_pos, curve):
@@ -591,17 +624,23 @@ def convert_to_png(folder_loc, max_vel):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory)
-correct_velocities, heat_map_correct, epochs_df, correct_decision_time, correct_offset, correct_stutter = user_profile(folders, user, "correct")
-incorrect_velocities, heat_map_incorrect, epochs_df, incorrect_decision_time, incorrect_offset, incorrect_stutter = user_profile(folders, user, "incorrect")
-max_vel = epochs_df["velocity"].max()
-mean_vel = epochs_df["velocity"].mean()
-print(mean_vel)
+correct_velocities, heat_map_correct, correct_epochs_df, correct_decision_time, correct_offset, correct_stutter, correct_pause_duration, correct_pause_no = user_profile(folders, user, "correct")
+incorrect_velocities, heat_map_incorrect, incorrect_epochs_df, incorrect_decision_time, incorrect_offset, incorrect_stutter, incorrect_pause_duration, incorrect_pause_no = user_profile(folders, user, "incorrect")
+
+#max_vel = epochs_df["velocity"].max()
+#mean_vel = epochs_df["velocity"].mean()
+#print(mean_vel)
 print(incorrect_decision_time)
 print(correct_decision_time)
-print(incorrect_offset)
-print(correct_offset)
-print(incorrect_stutter)
-print(correct_stutter)
+print("incorrect offset on approach: " + str(incorrect_offset))
+print("correct offset on approach: " + str(correct_offset))
+print("incorrect mean stutter: " + str(incorrect_stutter))
+print("correct mean stutter: " + str(correct_stutter))
+print("incorrect pause duration: " + str(incorrect_pause_duration))
+print("correct pause duration: " + str(correct_pause_duration))
+print("incorrect pause number: " + str(incorrect_pause_no))
+print("correct pause number: " + str(correct_pause_no))
+
 
 draw_profile(incorrect_velocities, correct_velocities, heat_map_correct, heat_map_incorrect)
 maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
