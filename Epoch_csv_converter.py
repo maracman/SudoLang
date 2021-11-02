@@ -17,13 +17,17 @@ divide_resolution = 1
 framerate = 60
 acc_curve = 8
 line_width = 6
+res_x = 800
+res_y = 600
 accel_channels = 2
-user = 'Dave'
+length_include = 1 #only inlclude files this many seconds or longer
+user = 'Marcus1'
 HSV = False
 click_batch = 1
+decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 100 #number of files used to create user profile (recommended 100)
-direction_segments = 12 #must be greater than 2
+sample_size = 10 #number of files used to create user profile (recommended 100)
+direction_segments = 8 #must be greater than 2
 
 def get_path():
     operating_system = sys.platform
@@ -33,7 +37,7 @@ def get_path():
     else:
         dir_path = os.getcwd()
 
-    return_path = os.path.join(dir_path, 'outputs/demo_folder_structure_(not_for_training)/mouse_tracking/')
+    return_path = os.path.join(dir_path, 'outputs/mouse_tracking/')
     return return_path
 
 def hsv_to_rgb(h, s, v):
@@ -144,7 +148,24 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
 
     return file_index
 
+def is_file_empty_2(file_name):
+    """ Check if file is empty by reading first character in it"""
+    # open ile in read mode
+    with open(file_name, 'r') as read_obj:
+        # read first character
+        one_char = read_obj.read(1)
+        # if not fetched then file is empty
+        if not one_char:
+           return True
+    return False
+
+def is_file_empty(file_path):
+    """ Check if file is empty by confirming if its size is 0 bytes"""
+    # Check if file exist and it is empty
+    return os.path.exists(file_path) and os.path.getsize(file_path) == 0
+
 def user_profile(file_index, user_name, label):
+
     curve = acc_curve
     vel_list = []
     heat_map_click = []
@@ -152,33 +173,50 @@ def user_profile(file_index, user_name, label):
     direction_loose_append = []
     x_pos_append = []
     y_pos_append = []
+    stutters = []
     time_append = []
+    decision_times = []
     final_click_pos = []
+    distance_from_click = []
+    approach_offsets = []
     files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label)]["file_path"].tolist()
     print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
     sample = sample_size
+
     if sample > len(files):
         sample = len(files)
     files = random.sample(files, sample)
-    print(files)
+
     for file in files:
-        f = open(file, 'r')
-        xy_pos = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
 
-
+        try:
+            f = open(file, 'r')
+            if not is_file_empty(file) and not is_file_empty_2(file):
+                xy_pos = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
+            else:
+                print("empty file: " + str(file))
+                continue
+        except IOError:
+            print("corrupt file: " + str(file))
+            continue
 
         #calculate loose velocity
         xy_pos_rolled = np.roll(xy_pos, curve)
         vel_x = (xy_pos['x_pos'] - xy_pos_rolled['x_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
         vel_y = (xy_pos['y_pos'] - xy_pos_rolled['y_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
 
+        #calculate velocity
+        for i in range(len(vel_x)):
+            distance = float(math.sqrt(vel_x[i]**2 + vel_y[i]**2))
+            vel_list.append(distance)
+        vel = np.array(vel_list)
+        acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
+
         # last mouse posistion aka click
         click_pos = int(xy_pos['x_pos'][len(xy_pos)-1]), int(xy_pos['y_pos'][len(xy_pos)-1])
         heat_map_click.append(click_pos)
         click_pos_list = [click_pos] * len(xy_pos)
         final_click_pos = [*final_click_pos, *click_pos_list]
-
-
 
         #fix last to first rollover error
         for i in range(curve):
@@ -212,22 +250,62 @@ def user_profile(file_index, user_name, label):
         direction_tight3 = np.degrees(np.arctan(y_diff3 / x_diff3))
         direction_tight3 = np.add(add_ar_tight3, direction_tight3)
         direction_best = np.nan_to_num(direction_tight1, nan=np.nan_to_num(direction_tight2, nan= np.nan_to_num(direction_tight3, nan = direction_loose)))
-    
-        #calculate velocity
-        for i in range(len(vel_x)):
-            distance = float(math.sqrt(vel_x[i]**2 + vel_y[i]**2))
-            vel_list.append(distance)
-        vel = np.array(vel_list)
-        acc = np.roll(np.append(np.diff(vel), 0),1) #appends 0 to start of vel diff
-
-
-
 
         direction_best_append = [*direction_best_append, *direction_best]
         direction_loose_append = [*direction_loose_append, *direction_loose]
         x_pos_append = [*x_pos_append, *xy_pos['x_pos']]
         y_pos_append = [*y_pos_append, *xy_pos['y_pos']]
         time_append = [*time_append, *xy_pos['time']]
+
+        #calculate stutter
+        stutter = np.sum(np.abs((np.subtract(np.nan_to_num(direction_loose, 0), np.nan_to_num(direction_best, 0)))))/len(direction_loose)
+        print(len(direction_loose))
+        print(len(direction_best))
+        stutters.append(stutter)
+
+        #distance at each point from destination click
+        new_distance_from_click = np.sqrt(np.power(xy_pos["x_pos"] - click_pos[0], 2) + np.power(xy_pos["y_pos"] - click_pos[1], 2))
+        distance_from_click = [*distance_from_click, *new_distance_from_click]
+
+        #calculate decision point from distance
+        decision_time = 0
+        check_distance = 0
+        decision_xy = [round(res_x/2), round(res_y/2)]
+        for i in range(len(new_distance_from_click)):
+            index = decision_point_calculator + (i * decision_point_calculator)
+            if index < len(new_distance_from_click):
+                if check_distance < new_distance_from_click[len(new_distance_from_click) - index]:
+                    decision_time = xy_pos["time"][len(xy_pos)-1] - xy_pos["time"][len(xy_pos) - index]
+                    check_distance = new_distance_from_click[len(new_distance_from_click) - index]
+                    decision_xy = [xy_pos['x_pos'][len(xy_pos) - index], xy_pos['y_pos'][len(xy_pos) - index]]
+                else:
+                    break
+            else:
+                break
+
+        #decision_time_list = [decision_time] * len(xy_pos)
+        decision_times.append(decision_time)
+
+        #calculate appraoch offset
+        if click_pos[0] - decision_xy[0] > 0: # --> todo: substitute for function
+            justify_angle = 90
+        elif click_pos[0] - decision_xy[0] < 0:
+            justify_angle = 270
+        else:
+            justify_angle = 0
+
+        if click_pos[0] - res_x/2 > 0: # --> todo: substitute for function
+            justify_angle2 = 90
+        elif click_pos[0] - res_x/2  < 0:
+            justify_angle2 = 270
+        else:
+            justify_angle2 = 0
+
+        approach_angle = np.degrees(np.arctan(click_pos[1] - decision_xy[1]/click_pos[0] - decision_xy[0])) + justify_angle
+        angle_from_center = np.degrees(np.arctan(click_pos[1] - res_y/2/click_pos[0] - res_x/2)) + justify_angle
+        approach_offset = abs(approach_angle - angle_from_center)
+        approach_offsets.append(approach_offset)
+
 
 
     #save useful info to dataframe
@@ -239,6 +317,7 @@ def user_profile(file_index, user_name, label):
          'direction_loose'+ '_' + str(curve): direction_loose_append,
          'direction_best': direction_best_append,
          'click_position': final_click_pos,
+         'distance_from_click': distance_from_click
          })
 
     #create direction categories
@@ -253,8 +332,10 @@ def user_profile(file_index, user_name, label):
         epochs_df[str(direction_cat_name)] = pd.cut(epochs_df['direction_loose'+ '_' + str(curve)], category_splits, labels=category_names)
     
     direction_means = epochs_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
-
-    return direction_means, heat_map_click
+    mean_decision_time = np.mean(decision_times)
+    mean_approach_offset = np.mean(approach_offsets)
+    mean_stutters = np.mean(stutters)
+    return direction_means, heat_map_click, epochs_df, mean_decision_time, mean_approach_offset, mean_stutters
 
 def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrect):
     x_list = []
@@ -284,9 +365,6 @@ def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrec
 
     plt.plot(x1_list, y1_list, color='blue', label="correct")
     plt.plot(x_list, y_list, color='red', label="incorrect")
-
-    print(x_list)
-    print(y_list)
 
     plt.show()
     i_x_heat, i_y_heat = zip(*heat_map_incorrect)
@@ -513,11 +591,20 @@ def convert_to_png(folder_loc, max_vel):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory)
-correct_velocities, heat_map_correct = user_profile(folders, user, "correct")
-incorrect_velocities, heat_map_incorrect = user_profile(folders, user, "incorrect")
-print(heat_map_incorrect)
-draw_profile(correct_velocities, incorrect_velocities, heat_map_correct, heat_map_incorrect)
-#maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
+correct_velocities, heat_map_correct, epochs_df, correct_decision_time, correct_offset, correct_stutter = user_profile(folders, user, "correct")
+incorrect_velocities, heat_map_incorrect, epochs_df, incorrect_decision_time, incorrect_offset, incorrect_stutter = user_profile(folders, user, "incorrect")
+max_vel = epochs_df["velocity"].max()
+mean_vel = epochs_df["velocity"].mean()
+print(mean_vel)
+print(incorrect_decision_time)
+print(correct_decision_time)
+print(incorrect_offset)
+print(correct_offset)
+print(incorrect_stutter)
+print(correct_stutter)
+
+draw_profile(incorrect_velocities, correct_velocities, heat_map_correct, heat_map_incorrect)
+maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
 
