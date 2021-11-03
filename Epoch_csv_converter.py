@@ -9,6 +9,9 @@ from datetime import date
 from PIL import Image
 from pathlib import Path
 import matplotlib.pyplot as plt
+from scipy.stats import norm, skewnorm
+import matplotlib.mlab as mlab
+
 from operator import is_
 import random
 import itertools
@@ -427,7 +430,11 @@ def draw_histograms(title, x_label, **kwargs):
     colours = ("red", "blue", "green", "yellow")
     colour_index = 0
     for name, values in kwargs.items():
-        plt.hist(values, color=colours[colour_index], label=name, alpha=0.5)
+        plt.hist(values, color=colours[colour_index], label=name, alpha=0.5, density=True)
+        ae, loce, scalee = skewnorm.fit(values)
+        domain = np.linspace(np.min(values), np.max(values), 100)
+        p = skewnorm.pdf(domain, ae, loce, scalee)
+        plt.plot(domain, p, color=colours[colour_index])
         colour_index = colour_index + 1
 
     plt.gca().set(title=title, xlabel = x_label)
