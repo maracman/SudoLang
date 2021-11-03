@@ -11,6 +11,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from operator import is_
 import random
+import itertools
+
 
 epoch_categories = ["correct", "incorrect"]
 divide_resolution = 1
@@ -27,7 +29,8 @@ HSV = False
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 40 #number of files used to create user profile (recommended 100)
+sample_size = 30 #number of files used to create user profile (recommended 100)
+number_of_samples = 100
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -184,7 +187,7 @@ def user_profile(file_index, user_name, label):
     distance_from_click = []
     approach_offsets = []
     files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label)]["file_path"].tolist()
-    print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
+    #print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
     sample = sample_size
 
     if sample > len(files):
@@ -373,11 +376,11 @@ def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrec
     y_list = []
     x1_list = []
     y1_list = []
-    for i in range(direction_segments):
+    for i in range(0,direction_segments):
         angle = (i * 360/direction_segments) + (360/direction_segments/2)
         angle = np.radians(angle)
-        y_list.append(np.cos(angle) * incorrect_vel["velocity"][i])
-        x_list.append(np.sin(angle) * incorrect_vel["velocity"][i])
+        y_list.append(np.cos(angle) * incorrect_vel[i])
+        x_list.append(np.sin(angle) * incorrect_vel[i])
 
 
     x_list = [*x_list, x_list[0]]
@@ -387,8 +390,8 @@ def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrec
     for i in range(direction_segments):
         angle = (i * 360 / direction_segments) + (360 / direction_segments / 2)
         angle = np.radians(angle)
-        y1_list.append(np.cos(angle) * correct_vel["velocity"][i])
-        x1_list.append(np.sin(angle) * correct_vel["velocity"][i])
+        y1_list.append(np.cos(angle) * correct_vel[i])
+        x1_list.append(np.sin(angle) * correct_vel[i])
 
 
     x1_list = [*x1_list, x1_list[0]]
@@ -420,6 +423,16 @@ def pause_calculator(velocities, time):
             pass
     return pauses
 
+def draw_histograms(title, x_label, **kwargs):
+    colours = ("red", "blue", "green", "yellow")
+    colour_index = 0
+    for name, values in kwargs.items():
+        plt.hist(values, color=colours[colour_index], label=name, alpha=0.5)
+        colour_index = colour_index + 1
+
+    plt.gca().set(title=title, xlabel = x_label)
+    plt.legend()
+    plt.show()
 
 def acc_vel_array(xy_pos, curve):
     xy_pos_rolled = np.roll(xy_pos, curve)
@@ -590,9 +603,6 @@ def convert_to_png(folder_loc, max_vel):
                     countdown_array = countdown_convert(file_info['time'])
                     velocity, acceleration, epoch, means = acc_vel_array(file_info, acc_curve)
 
-                    print(epoch[['direction_loose_8', 'direction_slice_8', 'velocity']])
-                    print(means)
-
                     for i in range(acc_curve, len(file_info), 1):
                         colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i], velocity[i], max_vel) #time to rgb
 
@@ -638,16 +648,35 @@ def convert_to_png(folder_loc, max_vel):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory)
-correct_velocities, heat_map_correct, correct_epochs_df, \
-correct_decision_time, correct_offset, correct_stutter, \
-correct_pause_duration, correct_pause_no, incorrect_decision_accel = user_profile(folders, user, "correct")
-incorrect_velocities, heat_map_incorrect, incorrect_epochs_df, \
-incorrect_decision_time, incorrect_offset, incorrect_stutter, \
-incorrect_pause_duration, incorrect_pause_no, correct_decision_accel = user_profile(folders, user, "incorrect")
+
+correct_velocities = ['nul'] * number_of_samples
+heat_map_correct = ['nul'] * number_of_samples
+correct_epochs_df = ['nul'] * number_of_samples
+correct_decision_time = ['nul'] * number_of_samples
+correct_offset = ['nul'] * number_of_samples
+correct_stutter = ['nul'] * number_of_samples
+correct_pause_duration = ['nul'] * number_of_samples
+correct_pause_no = ['nul'] * number_of_samples
+incorrect_decision_accel = ['nul'] * number_of_samples
+incorrect_velocities = ['nul'] * number_of_samples
+heat_map_incorrect = ['nul'] * number_of_samples
+incorrect_epochs_df = ['nul'] * number_of_samples
+incorrect_decision_time = ['nul'] * number_of_samples
+incorrect_offset = ['nul'] * number_of_samples
+incorrect_stutter = ['nul'] * number_of_samples
+incorrect_pause_duration = ['nul'] * number_of_samples
+incorrect_pause_no = ['nul'] * number_of_samples
+correct_decision_accel = ['nul'] * number_of_samples
+for i in range(number_of_samples):
+    correct_velocities[i], heat_map_correct[i], correct_epochs_df[i], \
+    correct_decision_time[i], correct_offset[i], correct_stutter[i], \
+    correct_pause_duration[i], correct_pause_no[i], correct_decision_accel[i] = user_profile(folders, user, "correct")
+    incorrect_velocities[i], heat_map_incorrect[i], incorrect_epochs_df[i], \
+    incorrect_decision_time[i], incorrect_offset[i], incorrect_stutter[i], \
+    incorrect_pause_duration[i], incorrect_pause_no[i], incorrect_decision_accel[i] = user_profile(folders, user, "incorrect")
 
 #max_vel = epochs_df["velocity"].max()
 #mean_vel = epochs_df["velocity"].mean()
-#print(mean_vel)
 print(incorrect_decision_time)
 print(correct_decision_time)
 print("incorrect offset on approach: " + str(incorrect_offset))
@@ -661,8 +690,20 @@ print("correct pause number: " + str(correct_pause_no))
 print("incorrect difference between max acceleration and decision times: " + str(incorrect_decision_accel))
 print("correct difference between max acceleration and decision times: " + str(correct_decision_accel))
 
+draw_histograms(incorrect = incorrect_decision_time, correct = correct_decision_time, title="time from decision to final click", x_label="time after decision in seconds")
+draw_histograms(incorrect = incorrect_decision_accel, correct = correct_decision_accel, title="difference between max acceleration and decision time", x_label="time after decision")
+draw_histograms(incorrect = incorrect_pause_no, correct = correct_pause_no, title="Mean amount of pauses per epoch", x_label="average number of pauses")
+draw_histograms(incorrect = incorrect_pause_duration, correct = correct_pause_duration, title="Mean duration of pauses", x_label="average length in seconds")
+draw_histograms(incorrect = incorrect_stutter, correct = correct_stutter, title="amount of directional stutter", x_label="average discrepency (in degrees) with overall direction")
+draw_histograms(incorrect = incorrect_offset, correct = correct_offset, title="angle of offset from center of window post-decision", x_label="discrepency in degrees from center angle")
 
-draw_profile(incorrect_velocities, correct_velocities, heat_map_correct, heat_map_incorrect)
+big_heat_map_correct = list(itertools.chain.from_iterable(heat_map_correct))
+big_heat_map_incorrect = list(itertools.chain.from_iterable(heat_map_incorrect))
+mean_incorrect_velocities = np.array(np.mean(incorrect_velocities, axis=0)).flatten().tolist()
+mean_correct_velocities = np.array(np.mean(correct_velocities, axis=0)).flatten().tolist()
+print(big_heat_map_incorrect)
+
+draw_profile(mean_incorrect_velocities, mean_correct_velocities, big_heat_map_correct, big_heat_map_incorrect)
 maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
