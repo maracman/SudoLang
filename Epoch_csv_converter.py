@@ -429,10 +429,19 @@ def pause_calculator(velocities, time):
 def draw_histograms(title, x_label, **kwargs):
     colours = ("red", "blue", "green", "yellow")
     colour_index = 0
+    max = []
+    min = []
+    for stats in kwargs.values():
+        max.append(np.max(stats))
+        min.append(np.min(stats))
+
+    max = np.max(max)
+    min = np.min(min)
+
     for name, values in kwargs.items():
         plt.hist(values, color=colours[colour_index], label=name, alpha=0.5, density=True)
         ae, loce, scalee = skewnorm.fit(values)
-        domain = np.linspace(np.min(values), np.max(values), 100)
+        domain = np.linspace(min, max, 100)
         p = skewnorm.pdf(domain, ae, loce, scalee)
         plt.plot(domain, p, color=colours[colour_index])
         colour_index = colour_index + 1
