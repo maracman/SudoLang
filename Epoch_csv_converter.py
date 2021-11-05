@@ -21,6 +21,7 @@ epoch_categories = ["correct", "incorrect"]
 divide_resolution = 1
 framerate = 60
 acc_curve = 8
+no_in_test_set = 10 #how many to set aside for testing
 line_width = 6
 res_x = 800
 pause_outlier_thresh = 4 #duration beyond which to not count as a pause
@@ -32,8 +33,8 @@ HSV = False
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 30 #number of files used to create user profile (recommended 100)
-number_of_samples = 100
+sample_size = 20 #number of files used to create user profile (recommended 100)
+number_of_samples = 40
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -109,7 +110,7 @@ def countdown_convert(mouse_timing): #creates rgb consistent relative to final c
         countdown_array.append(new_time)
     return countdown_array
 
-def index_files(folder_location): #(batch_size, sample_size, folder_location, random=False): #scope can be player or session
+def index_files(folder_location, for_test): #(batch_size, sample_size, folder_location, random=False): #scope can be player or session
     user_path = []
     user_ID = []
     session = []
@@ -151,7 +152,17 @@ def index_files(folder_location): #(batch_size, sample_size, folder_location, ra
 
     file_index = pd.DataFrame(
         {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no, 'file_path': epoch_path,
-        'file_name': file_name})
+        'file_name': file_name, 'test': False})
+
+    #set aside alotted number of each category for test
+    categories = file_index["label"].unique()
+    for category in categories:
+        test_set = file_index[(file_index['label'] == category)].sample(n=for_test, replace=False)
+        remainder = file_index.loc[~file_index.index.isin(test_set.index)]
+        test_set.loc[:,'test'] = True
+        file_index = pd.concat([remainder, test_set])
+
+
 
     return file_index
 
@@ -171,7 +182,7 @@ def is_file_empty(file_path):
     # Check if file exist and it is empty
     return os.path.exists(file_path) and os.path.getsize(file_path) == 0
 
-def user_profile(file_index, user_name, label):
+def user_profile(file_index, user_name, label, sample, batch_id, test = False, return_means = True):
     pause_amounts = []
     pause_durations = []
     curve = acc_curve
@@ -186,12 +197,12 @@ def user_profile(file_index, user_name, label):
     stutters = []
     time_append = []
     decision_times = []
+    valid_files = []
     final_click_pos = []
     distance_from_click = []
     approach_offsets = []
-    files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label)]["file_path"].tolist()
+    files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label) & (file_index["test"] == test)]["file_path"].tolist()
     #print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
-    sample = sample_size
 
     if sample > len(files):
         sample = len(files)
@@ -210,6 +221,7 @@ def user_profile(file_index, user_name, label):
             print("corrupt file: " + str(file))
             continue
 
+        valid_files.append(file)
         #calculate loose velocity
         xy_pos_rolled = np.roll(xy_pos, curve)
         vel_x = (xy_pos['x_pos'] - xy_pos_rolled['x_pos'])/curve # * (xy_pos_rolled['time'] - xy_pos['time'])
@@ -226,6 +238,10 @@ def user_profile(file_index, user_name, label):
         pause_list = pause_calculator(vel_list, xy_pos["time"])
         if len(pause_list) != 0:
             pause_durations.append(np.mean(pause_list))
+        else:
+            pause_durations.append(0)
+
+
         pause_amounts.append(len(pause_list))
 
         # last mouse posistion aka click
@@ -339,7 +355,7 @@ def user_profile(file_index, user_name, label):
 
 
     #save useful info to dataframe
-    epochs_df = pd.DataFrame(
+    stats_per_timeframe = pd.DataFrame(
         {'x_pos': x_pos_append,
          'y_pos': y_pos_append,
          'time': time_append,
@@ -360,19 +376,37 @@ def user_profile(file_index, user_name, label):
         category_names.append(i+2)
 
         direction_cat_name = 'direction_slice_' + str(direction_segments)
-        epochs_df[str(direction_cat_name)] = pd.cut(epochs_df['direction_loose'+ '_' + str(curve)], category_splits, labels=category_names)
-    
-    direction_means = epochs_df[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
-    mean_decision_time = np.mean(decision_times)
-    mean_approach_offset = np.mean(approach_offsets)
-    mean_stutters = np.mean(stutters)
-    mean_pause_duration = np.mean(pause_durations)
-    mean_pause_amount = np.mean(pause_amounts)
-    mean_decision_accel = np.mean(decision_accel_diff_append)
+        stats_per_timeframe[str(direction_cat_name)] = pd.cut(stats_per_timeframe['direction_loose'+ '_' + str(curve)], category_splits, labels=category_names)
 
-    return direction_means, heat_map_click, epochs_df, \
-           mean_decision_time, mean_approach_offset, \
-           mean_stutters, mean_pause_duration, mean_pause_amount, mean_decision_accel
+    direction_means_stats_df = []
+    for file in valid_files:
+        filestats = stats_per_timeframe[(stats_per_timeframe["file"] == file)]
+        new_direction_mean = filestats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean().values.flatten().tolist()
+        direction_means_stats_df.append(new_direction_mean)
+
+
+    stats_per_epoch = pd.DataFrame(
+        {'file': pd.unique(filelist_append),
+         'decision_time': decision_times,
+         'direction_velocities': direction_means_stats_df,
+         'approach_offset': approach_offsets,
+         'directional_stutter': stutters,
+         'mean_pause_length': pause_durations,
+         'mean_pause_number': pause_amounts,
+         'max_accel_v_decision': decision_accel_diff_append,
+         'batch_number': batch_id
+         })
+
+    direction_means = stats_per_timeframe[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+    mean_decision_time = np.mean(stats_per_epoch["decision_time"])
+    mean_approach_offset = np.mean(stats_per_epoch["approach_offset"])
+    mean_stutters = np.mean(stats_per_epoch["directional_stutter"])
+    mean_pause_duration = np.mean(np.trim_zeros(stats_per_epoch['mean_pause_length']))
+    mean_pause_amount = np.mean(stats_per_epoch['mean_pause_number'])
+    mean_decision_accel = np.mean(stats_per_epoch['max_accel_v_decision'])
+
+    if return_means:
+        return heat_map_click, stats_per_epoch, stats_per_timeframe
 
 def draw_profile(incorrect_vel, correct_vel, heat_map_correct, heat_map_incorrect):
     x_list = []
@@ -663,7 +697,7 @@ def convert_to_png(folder_loc, max_vel):
 # run program
 maximum_velocity_total = 100
 directory = get_path()
-folders = index_files(directory)
+folders = index_files(directory, no_in_test_set)
 
 correct_velocities = ['nul'] * number_of_samples
 heat_map_correct = ['nul'] * number_of_samples
@@ -683,49 +717,79 @@ incorrect_stutter = ['nul'] * number_of_samples
 incorrect_pause_duration = ['nul'] * number_of_samples
 incorrect_pause_no = ['nul'] * number_of_samples
 correct_decision_accel = ['nul'] * number_of_samples
+
+heat_map_correct = []
+correct_epoch_stats = pd.DataFrame()
+correct_timeframe_stats = pd.DataFrame()
+heat_map_incorrect = []
+incorrect_epoch_stats = pd.DataFrame()
+incorrect_timeframe_stats = pd.DataFrame()
 for i in range(number_of_samples):
-    correct_velocities[i], heat_map_correct[i], correct_epochs_df[i], \
-    correct_decision_time[i], correct_offset[i], correct_stutter[i], \
-    correct_pause_duration[i], correct_pause_no[i], correct_decision_accel[i] = user_profile(folders, user, "correct")
-    incorrect_velocities[i], heat_map_incorrect[i], incorrect_epochs_df[i], \
-    incorrect_decision_time[i], incorrect_offset[i], incorrect_stutter[i], \
-    incorrect_pause_duration[i], incorrect_pause_no[i], incorrect_decision_accel[i] = user_profile(folders, user, "incorrect")
+    new_heat_map_correct, new_correct_epoch_stats, new_correct_timeframe_stats = user_profile(folders, user, "correct", sample_size, i)
+    new_heat_map_incorrect, new_incorrect_epoch_stats, new_incorrect_timeframe_stats = user_profile(folders, user, "incorrect", sample_size, i)
 
-#max_vel = epochs_df["velocity"].max()
-#mean_vel = epochs_df["velocity"].mean()
-print(incorrect_decision_time)
-print(correct_decision_time)
-print("incorrect offset on approach: " + str(incorrect_offset))
-print("correct offset on approach: " + str(correct_offset))
-print("incorrect mean stutter: " + str(incorrect_stutter))
-print("correct mean stutter: " + str(correct_stutter))
-print("incorrect pause duration: " + str(incorrect_pause_duration))
-print("correct pause duration: " + str(correct_pause_duration))
-print("incorrect pause number: " + str(incorrect_pause_no))
-print("correct pause number: " + str(correct_pause_no))
-print("incorrect difference between max acceleration and decision times: " + str(incorrect_decision_accel))
-print("correct difference between max acceleration and decision times: " + str(correct_decision_accel))
+    #append data frames
+    correct_epoch_stats = correct_epoch_stats.append(new_correct_epoch_stats)
+    correct_timeframe_stats = correct_timeframe_stats.append(new_correct_timeframe_stats)
+    heat_map_correct.append(new_heat_map_correct)
 
-draw_histograms(incorrect = incorrect_decision_time, correct = correct_decision_time, title="time from decision to final click", x_label="time after decision in seconds")
-draw_histograms(incorrect = incorrect_decision_accel, correct = correct_decision_accel, title="difference between max acceleration and decision time", x_label="time after decision")
-draw_histograms(incorrect = incorrect_pause_no, correct = correct_pause_no, title="Mean amount of pauses per epoch", x_label="average number of pauses")
-draw_histograms(incorrect = incorrect_pause_duration, correct = correct_pause_duration, title="Mean duration of pauses", x_label="average length in seconds")
-draw_histograms(incorrect = incorrect_stutter, correct = correct_stutter, title="amount of directional stutter", x_label="average discrepency (in degrees) with overall direction")
-draw_histograms(incorrect = incorrect_offset, correct = correct_offset, title="angle of offset from center of window post-decision", x_label="discrepency in degrees from center angle")
+    incorrect_epoch_stats = incorrect_epoch_stats.append(new_incorrect_epoch_stats)
+    incorrect_timeframe_stats = incorrect_timeframe_stats.append(new_incorrect_timeframe_stats)
+    heat_map_incorrect.append(new_heat_map_incorrect)
+
+
+    direction_cat_name = 'direction_slice_' + str(direction_segments)
+    correct_velocities[i] = correct_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+    incorrect_velocities[i] = incorrect_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+
+
+
+
+
+draw_histograms(
+    incorrect = incorrect_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
+    correct = correct_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
+    title="Time from Decision to Final Click",
+    x_label="time in seconds")
+draw_histograms(
+    incorrect = incorrect_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
+    correct = correct_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
+    title="Time from Decision to Maximum Accelleration",
+    x_label="time in seconds")
+draw_histograms(
+    incorrect = incorrect_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
+    correct = correct_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
+    title="Mean Number of Pauses per Epoch",
+    x_label="number of pauses")
+draw_histograms(
+    incorrect = incorrect_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
+    correct = correct_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
+    title="Mean Duration of Pause",
+    x_label="pause length in seconds")
+draw_histograms(
+    incorrect = incorrect_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
+    correct = correct_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
+    title="Amount of Directional Stutter",
+    x_label="average of discrepency (in degrees) with overall direction")
+draw_histograms(
+    incorrect = incorrect_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
+    correct = correct_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
+    title="Angle of Offset on Approach",
+    x_label="discrepency in degrees from center angle")
 
 big_heat_map_correct = list(itertools.chain.from_iterable(heat_map_correct))
 big_heat_map_incorrect = list(itertools.chain.from_iterable(heat_map_incorrect))
 mean_incorrect_velocities = np.array(np.mean(incorrect_velocities, axis=0)).flatten().tolist()
 mean_correct_velocities = np.array(np.mean(correct_velocities, axis=0)).flatten().tolist()
-print(big_heat_map_incorrect)
+
+#correct_example_epoch =  user_profile(folders, user, "incorrect", sample_size)
+correct_velocities[i] = correct_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+incorrect_velocities[i] = incorrect_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
 draw_profile(mean_incorrect_velocities, mean_correct_velocities, big_heat_map_correct, big_heat_map_incorrect)
 maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
 
-
-
 #convert_to_png(correct_location, maximum_velocity_total)
 #convert_to_png(incorrect_location, maximum_velocity_total)
-#print(folders)
