@@ -30,11 +30,13 @@ accel_channels = 2
 length_include = 1 #only inlclude files this many seconds or longer
 user = 'Marcus1'
 HSV = False
+is_test = True #overlay test epochs on histograms
+test_set_label = "correct"
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 20 #number of files used to create user profile (recommended 100)
-number_of_samples = 40
+sample_size = 30 #number of files used to create user profile (recommended 100)
+number_of_samples = 100 #batch size for under 100 samples bootstrapping
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -123,11 +125,12 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
     user_id_path = []
     user_session = []
     for roots, dirs, files in os.walk(directory):
-        if re.match('/.*id_\w+(?!\/)+$', str(roots)):
+        if re.match('/.*id_\w+(?!\/)+$', str(roots)): #todo: match to 'user' variable
             for dir in dirs:
                 if dir.startswith('session_'):
                     user_id_path.append(roots)
                     user_session.append(dir)
+
 
     for i in range(len(user_id_path)):
         for category in epoch_categories:
@@ -239,7 +242,7 @@ def user_profile(file_index, user_name, label, sample, batch_id, test = False, r
         if len(pause_list) != 0:
             pause_durations.append(np.mean(pause_list))
         else:
-            pause_durations.append(0)
+            pause_durations.append(int(0))
 
 
         pause_amounts.append(len(pause_list))
@@ -338,14 +341,14 @@ def user_profile(file_index, user_name, label, sample, batch_id, test = False, r
 
         if click_pos[0] - res_x/2 > 0: # --> todo: substitute for function
             justify_angle2 = 90
-        elif click_pos[0] - res_x/2  < 0:
+        elif click_pos[0] - res_x/2 < 0:
             justify_angle2 = 270
         else:
             justify_angle2 = 0
 
-        approach_angle = np.degrees(np.arctan(click_pos[1] - decision_xy[1]/click_pos[0] - decision_xy[0])) + justify_angle
-        angle_from_center = np.degrees(np.arctan(click_pos[1] - res_y/2/click_pos[0] - res_x/2)) + justify_angle
-        approach_offset = abs(approach_angle - angle_from_center)
+        approach_angle = np.degrees(np.arctan(click_pos[1] - decision_xy[1]/click_pos[0] - decision_xy[0])) - justify_angle
+        angle_from_center = np.degrees(np.arctan(click_pos[1] - res_y/2/click_pos[0] - res_x/2)) - justify_angle2
+        approach_offset = abs(approach_angle - angle_from_center) % 180
         approach_offsets.append(approach_offset)
 
         #link to file destination
@@ -384,7 +387,6 @@ def user_profile(file_index, user_name, label, sample, batch_id, test = False, r
         new_direction_mean = filestats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean().values.flatten().tolist()
         direction_means_stats_df.append(new_direction_mean)
 
-
     stats_per_epoch = pd.DataFrame(
         {'file': pd.unique(filelist_append),
          'decision_time': decision_times,
@@ -394,7 +396,8 @@ def user_profile(file_index, user_name, label, sample, batch_id, test = False, r
          'mean_pause_length': pause_durations,
          'mean_pause_number': pause_amounts,
          'max_accel_v_decision': decision_accel_diff_append,
-         'batch_number': batch_id
+         'batch_number': batch_id,
+         'label': label
          })
 
     direction_means = stats_per_timeframe[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
@@ -460,8 +463,8 @@ def pause_calculator(velocities, time):
             pass
     return pauses
 
-def draw_histograms(title, x_label, **kwargs):
-    colours = ("red", "blue", "green", "yellow")
+def draw_histograms(title, x_label, test_x_positions=None, use_test=False,  **kwargs):
+    colours = ("red", "blue",  "green", "yellow", "purple", "orange", "pink")
     colour_index = 0
     max = []
     min = []
@@ -472,6 +475,17 @@ def draw_histograms(title, x_label, **kwargs):
     max = np.max(max)
     min = np.min(min)
 
+    # test overlays
+    if use_test:
+        test_x_positions = test_x_positions.values.tolist()
+        max = np.max(test_x_positions) if max < np.max(test_x_positions) else max
+        min = np.min(test_x_positions) if min > np.min(test_x_positions) else min
+        for i in range(len(test_x_positions)):
+            use_colour = colours[(len(kwargs)) + 1 + i] if ((len(kwargs)) + 1 + i) < 7 else list(
+                np.random.choice(range(256), size=3))
+            x = test_x_positions[i]
+            plt.axvline(x, label=i, color=use_colour)
+
     for name, values in kwargs.items():
         plt.hist(values, color=colours[colour_index], label=name, alpha=0.5, density=True)
         ae, loce, scalee = skewnorm.fit(values)
@@ -479,6 +493,8 @@ def draw_histograms(title, x_label, **kwargs):
         p = skewnorm.pdf(domain, ae, loce, scalee)
         plt.plot(domain, p, color=colours[colour_index])
         colour_index = colour_index + 1
+
+
 
     plt.gca().set(title=title, xlabel = x_label)
     plt.legend()
@@ -699,24 +715,17 @@ maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory, no_in_test_set)
 
+#test set
+_, test_epoch_stats, test_timeframe_stats = user_profile(folders, user, test_set_label, 3, 1, test=True)
+print(test_epoch_stats)
+
+
+#append empties for batch sampling
 correct_velocities = ['nul'] * number_of_samples
 heat_map_correct = ['nul'] * number_of_samples
-correct_epochs_df = ['nul'] * number_of_samples
-correct_decision_time = ['nul'] * number_of_samples
-correct_offset = ['nul'] * number_of_samples
-correct_stutter = ['nul'] * number_of_samples
-correct_pause_duration = ['nul'] * number_of_samples
-correct_pause_no = ['nul'] * number_of_samples
-incorrect_decision_accel = ['nul'] * number_of_samples
+
 incorrect_velocities = ['nul'] * number_of_samples
 heat_map_incorrect = ['nul'] * number_of_samples
-incorrect_epochs_df = ['nul'] * number_of_samples
-incorrect_decision_time = ['nul'] * number_of_samples
-incorrect_offset = ['nul'] * number_of_samples
-incorrect_stutter = ['nul'] * number_of_samples
-incorrect_pause_duration = ['nul'] * number_of_samples
-incorrect_pause_no = ['nul'] * number_of_samples
-correct_decision_accel = ['nul'] * number_of_samples
 
 heat_map_correct = []
 correct_epoch_stats = pd.DataFrame()
@@ -724,6 +733,7 @@ correct_timeframe_stats = pd.DataFrame()
 heat_map_incorrect = []
 incorrect_epoch_stats = pd.DataFrame()
 incorrect_timeframe_stats = pd.DataFrame()
+
 for i in range(number_of_samples):
     new_heat_map_correct, new_correct_epoch_stats, new_correct_timeframe_stats = user_profile(folders, user, "correct", sample_size, i)
     new_heat_map_incorrect, new_incorrect_epoch_stats, new_incorrect_timeframe_stats = user_profile(folders, user, "incorrect", sample_size, i)
@@ -737,45 +747,113 @@ for i in range(number_of_samples):
     incorrect_timeframe_stats = incorrect_timeframe_stats.append(new_incorrect_timeframe_stats)
     heat_map_incorrect.append(new_heat_map_incorrect)
 
-
     direction_cat_name = 'direction_slice_' + str(direction_segments)
     correct_velocities[i] = correct_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
     incorrect_velocities[i] = incorrect_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
 
-
-
-
-draw_histograms(
-    incorrect = incorrect_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
-    correct = correct_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
-    title="Time from Decision to Final Click",
-    x_label="time in seconds")
-draw_histograms(
-    incorrect = incorrect_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
-    correct = correct_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
-    title="Time from Decision to Maximum Accelleration",
-    x_label="time in seconds")
-draw_histograms(
-    incorrect = incorrect_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
-    correct = correct_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
-    title="Mean Number of Pauses per Epoch",
-    x_label="number of pauses")
-draw_histograms(
-    incorrect = incorrect_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
-    correct = correct_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
-    title="Mean Duration of Pause",
-    x_label="pause length in seconds")
-draw_histograms(
-    incorrect = incorrect_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
-    correct = correct_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
-    title="Amount of Directional Stutter",
-    x_label="average of discrepency (in degrees) with overall direction")
-draw_histograms(
-    incorrect = incorrect_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
-    correct = correct_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
-    title="Angle of Offset on Approach",
-    x_label="discrepency in degrees from center angle")
+#print(test_correct_epoch_stats["decision_time"])
+#bootstrapped and pure distribution histograms
+if number_of_samples > 1:
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
+        title="Time from Decision to Final Click",
+        x_label="time in seconds",
+        test_x_positions=test_epoch_stats["decision_time"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
+        title="Time from Decision to Maximum Accelleration",
+        x_label="time in seconds",
+        test_x_positions=test_epoch_stats["max_accel_v_decision"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[['mean_pause_number', "batch_number"]][(incorrect_epoch_stats['mean_pause_number'] != 0)].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[['mean_pause_number', "batch_number"]][(correct_epoch_stats['mean_pause_number'] != 0)].groupby('batch_number').mean(),
+        title="Mean Number of Pauses per Epoch (excluding zeros)",
+        x_label="number of pauses",
+        test_x_positions=test_epoch_stats["mean_pause_number"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
+        title="Mean Number of Pauses per Epoch",
+        x_label="number of pauses",
+        test_x_positions=test_epoch_stats["mean_pause_number"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
+        title="Mean Duration of Pause",
+        x_label="pause length in seconds",
+        test_x_positions=test_epoch_stats["mean_pause_length"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
+        title="Amount of Directional Stutter",
+        x_label="average of discrepency (in degrees) with overall direction",
+        test_x_positions=test_epoch_stats["directional_stutter"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect = incorrect_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
+        correct = correct_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
+        title="Angle of Offset on Approach",
+        x_label="discrepency in degrees from center angle",
+        test_x_positions=test_epoch_stats["approach_offset"],
+        use_test=is_test)
+else:
+    draw_histograms(
+        incorrect=incorrect_epoch_stats["decision_time"],
+        correct=correct_epoch_stats["decision_time"],
+        title="Time from Decision to Final Click",
+        x_label="time in seconds",
+        test_x_positions = test_epoch_stats["decision_time"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect=incorrect_epoch_stats['max_accel_v_decision'],
+        correct=correct_epoch_stats['max_accel_v_decision'],
+        title="Time from Decision to Maximum Accelleration",
+        x_label="time in seconds",
+        test_x_positions=test_epoch_stats["max_accel_v_decision"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect=incorrect_epoch_stats['mean_pause_number'][(incorrect_epoch_stats['mean_pause_number'] != 0)],
+        correct=correct_epoch_stats['mean_pause_number'][(correct_epoch_stats['mean_pause_number'] != 0)],
+        title="Mean Number of Pauses per Epoch (no zeros)",
+        x_label="number of pauses",
+        test_x_positions=test_epoch_stats["mean_pause_number"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect=incorrect_epoch_stats['mean_pause_number'],
+        correct=correct_epoch_stats['mean_pause_number'],
+        title="Mean Number of Pauses per Epoch",
+        x_label="number of pauses",
+        test_x_positions=test_epoch_stats["mean_pause_number"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect=incorrect_epoch_stats['mean_pause_length'],
+        correct=correct_epoch_stats['mean_pause_length'],
+        title="Mean Duration of Pause",
+        x_label="pause length in seconds",
+        test_x_positions=test_epoch_stats["mean_pause_length"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect=incorrect_epoch_stats["directional_stutter"],
+        correct=correct_epoch_stats["directional_stutter"],
+        title="Amount of Directional Stutter",
+        x_label="average of discrepency (in degrees) with overall direction",
+        test_x_positions=test_epoch_stats["directional_stutter"],
+        use_test=is_test)
+    draw_histograms(
+        incorrect=incorrect_epoch_stats["approach_offset"],
+        correct=correct_epoch_stats["approach_offset"],
+        title="Angle of Offset on Approach",
+        x_label="discrepency in degrees from center angle",
+        test_x_positions=test_epoch_stats["approach_offset"],
+        use_test=is_test)
 
 big_heat_map_correct = list(itertools.chain.from_iterable(heat_map_correct))
 big_heat_map_incorrect = list(itertools.chain.from_iterable(heat_map_incorrect))
@@ -787,7 +865,7 @@ correct_velocities[i] = correct_timeframe_stats[['velocity', str(direction_cat_n
 incorrect_velocities[i] = incorrect_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
 draw_profile(mean_incorrect_velocities, mean_correct_velocities, big_heat_map_correct, big_heat_map_incorrect)
-maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
+#maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
 #maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
 #maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
 
