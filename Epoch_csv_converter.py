@@ -19,6 +19,7 @@ import itertools
 
 epoch_categories = ["correct", "incorrect"]
 divide_resolution = 1
+stats_csv_columns = ("isDisplayed", "coord_file_name")
 framerate = 60
 acc_curve = 8
 no_in_test_set = 10 #how many to set aside for testing
@@ -120,18 +121,35 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
     sequence_no = []
     file_name = []
     epoch_path = []
+    stats_csv = pd.DataFrame()
 
     print('.')
     user_id_path = []
     user_session = []
+    for dirs in os.walk(directory):
+        print(dirs)
+
     for roots, dirs, files in os.walk(directory):
-        if re.match('/.*id_\w+(?!\/)+$', str(roots)): #todo: match to 'user' variable
+        if re.match('/.*id_\w+(?!\/)+$', str(roots)):
             for dir in dirs:
                 if dir.startswith('session_'):
                     user_id_path.append(roots)
                     user_session.append(dir)
 
-
+    #load stats csv
+    for path in user_id_path:
+        for dir in user_session:
+            for file in os.listdir(str(path) + '/' + str(dir)):
+                if file.endswith('.csv'):
+                    filepath = str(path) + '/' + str(dir) + '/' + str(file)
+                    filedir = str(path) + '/' + str(dir)
+                    filename = file
+                    new_stats_df = pd.read_csv(filepath, usecols=stats_csv_columns)
+                    new_stats_df['stats_directory'] = [filedir] * len(new_stats_df)
+                    new_stats_df['stats_filename'] = [filename] * len(new_stats_df)
+                    stats_csv = stats_csv.append(new_stats_df)
+    print(stats_csv["stats_directory"])
+    #load epoch csv's and data in dataframe
     for i in range(len(user_id_path)):
         for category in epoch_categories:
             directory2 = str(user_id_path[i]) + '/' + str(user_session[i] + '/' + str(category))
@@ -141,7 +159,6 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
                         file_name.append(file)
                         user_path.append(user_id_path[i])
                         session.append(user_session[i])
-                        label.append(category)
                         file_path = str(directory2) + '/' + str(file)
                         epoch_path.append(file_path)
                         user = str(re.findall("(?<=id_)\w+$", str(user_id_path[i])))
@@ -150,9 +167,18 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
                         sequence = int(sequence)
                         user = user.lstrip("['").strip("']")
 
+                        #add isDisplayed to categories
+                        if 1 in stats_csv[(stats_csv["stats_directory"] == str(str(user_id_path[i]) + '/' + str(user_session[i]))) &
+                                   (stats_csv["coord_file_name"] == str(file))]["isDisplayed"].values.flatten().tolist():
+                            append_category = category, "displayed"
+                        else:
+                            append_category = category
+                        print(append_category)
+                        label.append(append_category)
+                        
                         user_ID.append(user)
                         sequence_no.append(sequence)
-
+    #print(stats_csv)
     file_index = pd.DataFrame(
         {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no, 'file_path': epoch_path,
         'file_name': file_name, 'test': False})
