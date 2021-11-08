@@ -16,8 +16,10 @@ from operator import is_
 import random
 import itertools
 
-
-epoch_categories = ["correct", "incorrect"]
+new_file_name = "epoch_training.csv"
+epoch_categories = ["correct", "incorrect"] #folder names for labels
+plot_category_1 = "correct"
+plot_category_2 = "incorrect"
 divide_resolution = 1
 stats_csv_columns = ("isDisplayed", "coord_file_name")
 framerate = 60
@@ -31,13 +33,13 @@ accel_channels = 2
 length_include = 1 #only inlclude files this many seconds or longer
 user = 'Marcus1'
 HSV = False
-is_test = True #overlay test epochs on histograms
+is_test = False #overlay test epochs on histograms
 test_set_label = "correct"
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 30 #number of files used to create user profile (recommended 100)
-number_of_samples = 100 #batch size for under 100 samples bootstrapping
+sample_size = 100 #number of files used to create user profile (recommended 100)
+number_of_samples = 1 #batch size for under 100 samples bootstrapping
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -170,12 +172,12 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
                         #add isDisplayed to categories
                         if 1 in stats_csv[(stats_csv["stats_directory"] == str(str(user_id_path[i]) + '/' + str(user_session[i]))) &
                                    (stats_csv["coord_file_name"] == str(file))]["isDisplayed"].values.flatten().tolist():
-                            append_category = category, "displayed"
+                            append_category = "displayed"
                         else:
                             append_category = category
                         print(append_category)
                         label.append(append_category)
-                        
+
                         user_ID.append(user)
                         sequence_no.append(sequence)
     #print(stats_csv)
@@ -680,66 +682,74 @@ def calculate_max_vel(folder_loc):
     return max_velocity, total_mean_vel
 
 
-def convert_to_png(folder_loc, max_vel):
+def convert_to_png(max_vel, folders):
+    files = folders["file_path"].values.tolist()
+    folders = folders.set_index("file_path")
+    #for root,dirs,files in os.walk(folder_loc):
+    #    for file in files:
 
-    for root,dirs,files in os.walk(folder_loc):
-        for file in files:
+    #        if file.endswith(".csv"):
+    for file in files:
+        try:
+            #print(os.path.join(folder_loc, file))
+            f=open(file, 'r')
+            file_info = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
 
-            if file.endswith(".csv"):
-                try:
-                    #print(os.path.join(folder_loc, file))
-                    f=open(os.path.join(folder_loc, file), 'r')
-                    file_info = np.loadtxt(f, delimiter=",", skiprows=1, dtype=[('x_pos', 'int'), ('y_pos', 'int'), ('time', 'float32')])
+            pix_array = np.zeros((round(600/divide_resolution)+1, round(800/divide_resolution)+1, 3), dtype=np.uint8)
+            countdown_array = countdown_convert(file_info['time'])
+            velocity, acceleration, epoch, means = acc_vel_array(file_info, acc_curve)
 
-                    pix_array = np.zeros((round(600/divide_resolution)+1, round(800/divide_resolution)+1, 3), dtype=np.uint8)
-                    countdown_array = countdown_convert(file_info['time'])
-                    velocity, acceleration, epoch, means = acc_vel_array(file_info, acc_curve)
+            for i in range(acc_curve, len(file_info), 1):
+                colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i], velocity[i], max_vel) #time to rgb
 
-                    for i in range(acc_curve, len(file_info), 1):
-                        colour_r, colour_g, colour_b = convert_to_rgb(countdown_array[i], velocity[i], max_vel) #time to rgb
+                x_coord = round(int(file_info[i][1])/divide_resolution)
+                y_coord = round(int(file_info[i][0])/divide_resolution)
+                if i < len(file_info) - 1:
+                    x_next = round(int(file_info[i+1][1])/divide_resolution)
+                    y_next = round(int(file_info[i+1][0])/divide_resolution)
 
-                        x_coord = round(int(file_info[i][1])/divide_resolution)
-                        y_coord = round(int(file_info[i][0])/divide_resolution)
-                        if i < len(file_info) - 1:
-                            x_next = round(int(file_info[i+1][1])/divide_resolution)
-                            y_next = round(int(file_info[i+1][0])/divide_resolution)
+                trace_between_array = draw_line(
+                    np.zeros((round(600 / divide_resolution) + line_width, round(800 / divide_resolution) + line_width)), x_coord,
+                    y_coord, x_next, y_next)
 
-                        trace_between_array = draw_line(
-                            np.zeros((round(600 / divide_resolution) + line_width, round(800 / divide_resolution) + line_width)), x_coord,
-                            y_coord, x_next, y_next)
+                line_coords = np.argwhere(trace_between_array == 1)
+                #print(epoch)
 
-                        line_coords = np.argwhere(trace_between_array == 1)
-                        #print(epoch)
+                for j in range(len(line_coords)):
+                    if np.nonzero(line_coords[j]):
+                        joining_x, joining_y = line_coords[j,0], line_coords[j,1]
+                        pix_array[joining_x, joining_y] = [colour_r, colour_g, colour_b]
 
-                        for j in range(len(line_coords)):
-                            if np.nonzero(line_coords[j]):
-                                joining_x, joining_y = line_coords[j,0], line_coords[j,1]
-                                pix_array[joining_x, joining_y] = [colour_r, colour_g, colour_b]
-
-                        pix_array[x_coord, y_coord] = [colour_r, colour_g, colour_b]
+                pix_array[x_coord, y_coord] = [colour_r, colour_g, colour_b]
 
 
-                    #create png folder
-                    day_today = date.today().strftime("%Y-%m-%d")
-                    new_path = os.path.join(folder_loc, day_today + "_PNGconvert")
-                    Path(new_path).mkdir(parents=True, exist_ok=True)
-                    filename = file.strip(".csv")
+            #create png folder
+            day_today = date.today().strftime("%Y-%m-%d")
+            new_path = str(folders.loc[file]["user_path"]) + '/' + (str(day_today) + "_PNGconvert") + '/' + str(folders.loc[file]["session"]) + '/' + str(folders.loc[file]["label"])
 
-                    #save pixel array as png
-                    im = Image.fromarray(pix_array)
-                    im.save(new_path + '/' + filename + '.png')
 
-                    plt.imshow(pix_array)  #unhash to review png's while processing
-                    plt.show()             #unhash to review png's while processing
-                except StopIteration:
-                    print("empty file encountered: " + str(file))
+            Path(new_path).mkdir(parents=True, exist_ok=True)
+            filename = folders.loc[file]["file_name"].strip(".csv")
 
-                f.close()
+            #save pixel array as png
+            im = Image.fromarray(pix_array)
+            im.save(new_path + '/' + filename + '.png')
+
+            #plt.imshow(pix_array)  #unhash to review png's while processing
+            #plt.show()             #unhash to review png's while processing
+        except StopIteration:
+            print("empty file encountered: " + str(file))
+
+        f.close()
+
+def save_epoch_dataframe(filepath, dataframe):
+    dataframe.to_csv(filepath, index = False, header=True)
 
 # run program
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory, no_in_test_set)
+print(folders["label"])
 
 #test set
 _, test_epoch_stats, test_timeframe_stats = user_profile(folders, user, test_set_label, 3, 1, test=True)
@@ -747,153 +757,159 @@ print(test_epoch_stats)
 
 
 #append empties for batch sampling
-correct_velocities = ['nul'] * number_of_samples
-heat_map_correct = ['nul'] * number_of_samples
+variable1_velocities = ['nul'] * number_of_samples
+heat_map_variable1 = ['nul'] * number_of_samples
 
-incorrect_velocities = ['nul'] * number_of_samples
-heat_map_incorrect = ['nul'] * number_of_samples
+variable2_velocities = ['nul'] * number_of_samples
+heat_map_variable2 = ['nul'] * number_of_samples
 
-heat_map_correct = []
-correct_epoch_stats = pd.DataFrame()
-correct_timeframe_stats = pd.DataFrame()
-heat_map_incorrect = []
-incorrect_epoch_stats = pd.DataFrame()
-incorrect_timeframe_stats = pd.DataFrame()
+heat_map_variable1 = []
+variable1_epoch_stats = pd.DataFrame()
+variable1_timeframe_stats = pd.DataFrame()
+heat_map_variable2 = []
+variable2_epoch_stats = pd.DataFrame()
+variable2_timeframe_stats = pd.DataFrame()
 
 for i in range(number_of_samples):
-    new_heat_map_correct, new_correct_epoch_stats, new_correct_timeframe_stats = user_profile(folders, user, "correct", sample_size, i)
-    new_heat_map_incorrect, new_incorrect_epoch_stats, new_incorrect_timeframe_stats = user_profile(folders, user, "incorrect", sample_size, i)
+    new_heat_map_variable1, new_epoch_stats_variable1, new_timeframe_stats_variable1 = user_profile(folders, user, plot_category_1, sample_size, i)
+    new_heat_map_variable2, new_epoch_stats_variable2, new_timeframe_stats_variable2 = user_profile(folders, user, plot_category_2, sample_size, i)
 
     #append data frames
-    correct_epoch_stats = correct_epoch_stats.append(new_correct_epoch_stats)
-    correct_timeframe_stats = correct_timeframe_stats.append(new_correct_timeframe_stats)
-    heat_map_correct.append(new_heat_map_correct)
+    variable1_epoch_stats = variable1_epoch_stats.append(new_epoch_stats_variable1)
+    variable1_timeframe_stats = variable1_timeframe_stats.append(new_timeframe_stats_variable1)
+    heat_map_variable1.append(new_heat_map_variable1)
 
-    incorrect_epoch_stats = incorrect_epoch_stats.append(new_incorrect_epoch_stats)
-    incorrect_timeframe_stats = incorrect_timeframe_stats.append(new_incorrect_timeframe_stats)
-    heat_map_incorrect.append(new_heat_map_incorrect)
+    variable2_epoch_stats = variable2_epoch_stats.append(new_epoch_stats_variable2)
+    variable2_timeframe_stats = variable2_timeframe_stats.append(new_timeframe_stats_variable2)
+    heat_map_variable2.append(new_heat_map_variable2)
 
     direction_cat_name = 'direction_slice_' + str(direction_segments)
-    correct_velocities[i] = correct_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
-    incorrect_velocities[i] = incorrect_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+    variable1_velocities[i] = variable1_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+    variable2_velocities[i] = variable2_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
 
 #print(test_correct_epoch_stats["decision_time"])
 #bootstrapped and pure distribution histograms
 if number_of_samples > 1:
     draw_histograms(
-        incorrect = incorrect_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[["decision_time", "batch_number"]].groupby('batch_number').mean(),
         title="Time from Decision to Final Click",
         x_label="time in seconds",
         test_x_positions=test_epoch_stats["decision_time"],
         use_test=is_test)
     draw_histograms(
-        incorrect = incorrect_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[['max_accel_v_decision', "batch_number"]].groupby('batch_number').mean(),
         title="Time from Decision to Maximum Accelleration",
         x_label="time in seconds",
         test_x_positions=test_epoch_stats["max_accel_v_decision"],
         use_test=is_test)
     draw_histograms(
-        incorrect = incorrect_epoch_stats[['mean_pause_number', "batch_number"]][(incorrect_epoch_stats['mean_pause_number'] != 0)].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[['mean_pause_number', "batch_number"]][(correct_epoch_stats['mean_pause_number'] != 0)].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[['mean_pause_number', "batch_number"]][(variable2_epoch_stats['mean_pause_number'] != 0)].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[['mean_pause_number', "batch_number"]][(variable1_epoch_stats['mean_pause_number'] != 0)].groupby('batch_number').mean(),
         title="Mean Number of Pauses per Epoch (excluding zeros)",
         x_label="number of pauses",
         test_x_positions=test_epoch_stats["mean_pause_number"],
         use_test=is_test)
     draw_histograms(
-        incorrect = incorrect_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[['mean_pause_number', "batch_number"]].groupby('batch_number').mean(),
         title="Mean Number of Pauses per Epoch",
         x_label="number of pauses",
         test_x_positions=test_epoch_stats["mean_pause_number"],
         use_test=is_test)
     draw_histograms(
-        incorrect = incorrect_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[['mean_pause_length', "batch_number"]].groupby('batch_number').mean(),
         title="Mean Duration of Pause",
         x_label="pause length in seconds",
         test_x_positions=test_epoch_stats["mean_pause_length"],
         use_test=is_test)
     draw_histograms(
-        incorrect = incorrect_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[["directional_stutter", "batch_number"]].groupby('batch_number').mean(),
         title="Amount of Directional Stutter",
         x_label="average of discrepency (in degrees) with overall direction",
         test_x_positions=test_epoch_stats["directional_stutter"],
         use_test=is_test)
     draw_histograms(
-        incorrect = incorrect_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
-        correct = correct_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
+        incorrect = variable2_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
+        correct = variable1_epoch_stats[["approach_offset", "batch_number"]].groupby('batch_number').mean(),
         title="Angle of Offset on Approach",
         x_label="discrepency in degrees from center angle",
         test_x_positions=test_epoch_stats["approach_offset"],
         use_test=is_test)
 else:
     draw_histograms(
-        incorrect=incorrect_epoch_stats["decision_time"],
-        correct=correct_epoch_stats["decision_time"],
+        incorrect=variable2_epoch_stats["decision_time"],
+        correct=variable1_epoch_stats["decision_time"],
         title="Time from Decision to Final Click",
         x_label="time in seconds",
         test_x_positions = test_epoch_stats["decision_time"],
         use_test=is_test)
     draw_histograms(
-        incorrect=incorrect_epoch_stats['max_accel_v_decision'],
-        correct=correct_epoch_stats['max_accel_v_decision'],
+        incorrect=variable2_epoch_stats['max_accel_v_decision'],
+        correct=variable1_epoch_stats['max_accel_v_decision'],
         title="Time from Decision to Maximum Accelleration",
         x_label="time in seconds",
         test_x_positions=test_epoch_stats["max_accel_v_decision"],
         use_test=is_test)
     draw_histograms(
-        incorrect=incorrect_epoch_stats['mean_pause_number'][(incorrect_epoch_stats['mean_pause_number'] != 0)],
-        correct=correct_epoch_stats['mean_pause_number'][(correct_epoch_stats['mean_pause_number'] != 0)],
+        incorrect=variable2_epoch_stats['mean_pause_number'][(variable2_epoch_stats['mean_pause_number'] != 0)],
+        correct=variable1_epoch_stats['mean_pause_number'][(variable1_epoch_stats['mean_pause_number'] != 0)],
         title="Mean Number of Pauses per Epoch (no zeros)",
         x_label="number of pauses",
         test_x_positions=test_epoch_stats["mean_pause_number"],
         use_test=is_test)
     draw_histograms(
-        incorrect=incorrect_epoch_stats['mean_pause_number'],
-        correct=correct_epoch_stats['mean_pause_number'],
+        incorrect=variable2_epoch_stats['mean_pause_number'],
+        correct=variable1_epoch_stats['mean_pause_number'],
         title="Mean Number of Pauses per Epoch",
         x_label="number of pauses",
         test_x_positions=test_epoch_stats["mean_pause_number"],
         use_test=is_test)
     draw_histograms(
-        incorrect=incorrect_epoch_stats['mean_pause_length'],
-        correct=correct_epoch_stats['mean_pause_length'],
+        incorrect=variable2_epoch_stats['mean_pause_length'],
+        correct=variable1_epoch_stats['mean_pause_length'],
         title="Mean Duration of Pause",
         x_label="pause length in seconds",
         test_x_positions=test_epoch_stats["mean_pause_length"],
         use_test=is_test)
     draw_histograms(
-        incorrect=incorrect_epoch_stats["directional_stutter"],
-        correct=correct_epoch_stats["directional_stutter"],
+        incorrect=variable2_epoch_stats["directional_stutter"],
+        correct=variable1_epoch_stats["directional_stutter"],
         title="Amount of Directional Stutter",
         x_label="average of discrepency (in degrees) with overall direction",
         test_x_positions=test_epoch_stats["directional_stutter"],
         use_test=is_test)
     draw_histograms(
-        incorrect=incorrect_epoch_stats["approach_offset"],
-        correct=correct_epoch_stats["approach_offset"],
+        incorrect=variable2_epoch_stats["approach_offset"],
+        correct=variable1_epoch_stats["approach_offset"],
         title="Angle of Offset on Approach",
         x_label="discrepency in degrees from center angle",
         test_x_positions=test_epoch_stats["approach_offset"],
         use_test=is_test)
 
-big_heat_map_correct = list(itertools.chain.from_iterable(heat_map_correct))
-big_heat_map_incorrect = list(itertools.chain.from_iterable(heat_map_incorrect))
-mean_incorrect_velocities = np.array(np.mean(incorrect_velocities, axis=0)).flatten().tolist()
-mean_correct_velocities = np.array(np.mean(correct_velocities, axis=0)).flatten().tolist()
+big_heat_map_variable1 = list(itertools.chain.from_iterable(heat_map_variable1))
+big_heat_map_variable2 = list(itertools.chain.from_iterable(heat_map_variable2))
+mean_variable2_velocities = np.array(np.mean(variable2_velocities, axis=0)).flatten().tolist()
+mean_variable1_velocities = np.array(np.mean(variable1_velocities, axis=0)).flatten().tolist()
 
 #correct_example_epoch =  user_profile(folders, user, "incorrect", sample_size)
-correct_velocities[i] = correct_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
-incorrect_velocities[i] = incorrect_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+variable1_velocities[i] = variable1_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
+variable2_velocities[i] = variable2_timeframe_stats[['velocity', str(direction_cat_name)]].groupby(str(direction_cat_name)).mean()
 
-draw_profile(mean_incorrect_velocities, mean_correct_velocities, big_heat_map_correct, big_heat_map_incorrect)
-#maximum_velocity_incorrect, mean_vel_incorrect = calculate_max_vel(directory + "incorrect")
-#maximum_velocity_correct, mean_vel_correct = calculate_max_vel(directory + "correct")
-#maximum_velocity_total = maximum_velocity_correct if maximum_velocity_correct > maximum_velocity_incorrect else maximum_velocity_incorrect
 
-#convert_to_png(correct_location, maximum_velocity_total)
-#convert_to_png(incorrect_location, maximum_velocity_total)
+draw_profile(mean_variable2_velocities, mean_variable1_velocities, big_heat_map_variable1, big_heat_map_variable2)
+
+export_dataframe = pd.concat([variable1_epoch_stats,variable2_epoch_stats])
+save_csv_path = os.path.join(directory, new_file_name)
+save_epoch_dataframe(save_csv_path, export_dataframe)
+
+joint_timeframe_stats = pd.concat([variable1_timeframe_stats, variable2_timeframe_stats])
+maxvel = joint_timeframe_stats["velocity"].max()
+meanvel = joint_timeframe_stats["velocity"].mean()
+
+# convert to image
+convert_to_png(maxvel, folders)
