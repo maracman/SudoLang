@@ -11,12 +11,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.stats import norm, skewnorm
 import matplotlib.mlab as mlab
-
 from operator import is_
 import random
 import itertools
 
-export_to_png = False #export all files in user directory to .png
+export_to_png = True #export all files in user directory to .png
+show_img_at_export = False
 new_file_name = "epoch_training.csv"
 epoch_categories = ["correct", "incorrect"] #folder names for labels
 plot_category_1 = "correct"
@@ -39,8 +39,8 @@ test_set_label = "correct"
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 20 #number of files used to create user profile (recommended 100)
-number_of_samples = 100 #batch size for under 100 samples bootstrapping
+sample_size = 100 #number of files used to create user profile (recommended 100)
+number_of_samples = 1 #batch size for under 100 samples bootstrapping
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -737,17 +737,13 @@ def convert_to_png(max_vel, folders):
             fig = plt.figure()
             ax = plt.axes([0, 0, 1, 1])
             plt.axis("off")
-
-            #im.save(new_path + '/' + filename + '.png')
-
-            plt.imshow(im, interpolation="nearest")  #unhash to review png's while processing
-
+            plt.imshow(im, interpolation="nearest")
             circle1 = plt.Circle((round(file_info[len(file_info)-1]["x_pos"]/divide_resolution), round(file_info[len(file_info)-1]["y_pos"]/divide_resolution)), 20, color='r', alpha=0.3)
             plt.gca().add_patch(circle1)
-
             plt.savefig((new_path + '/' + filename + '.png'), bbox_inches='tight', interpolation="nearest")
 
-            plt.show()             #unhash to review png's while processing
+            if show_img_at_export:
+                plt.show()             #unhash to review png's while processing
         except StopIteration:
             print("empty file encountered: " + str(file))
 
