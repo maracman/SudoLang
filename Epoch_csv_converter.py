@@ -15,14 +15,15 @@ from operator import is_
 import random
 import itertools
 
-export_to_png = True #export all files in user directory to .png
+export_to_png = False #export all files in user directory to .png
 show_img_at_export = False
+export_csv = False
 new_file_name = "epoch_training.csv"
-epoch_categories = ["correct", "incorrect"] #folder names for labels
 plot_category_1 = "correct"
 plot_category_2 = "incorrect"
+epoch_categories = [plot_category_1, plot_category_2] #folder names for labels
 divide_resolution = 1
-stats_csv_columns = ("isDisplayed", "coord_file_name")
+stats_csv_columns = ("isDisplayed", "coord_file_name") #extra information to from csv file to add to epoch data
 framerate = 60
 acc_curve = 8
 no_in_test_set = 10 #how many to set aside for testing
@@ -32,15 +33,15 @@ pause_outlier_thresh = 4 #duration beyond which to not count as a pause
 res_y = 600
 accel_channels = 2
 length_include = 1 #only inlclude files this many seconds or longer
-user = 'Marcus1'
+user = 'Eddie V2'
 HSV = False
 is_test = False #overlay test epochs on histograms
 test_set_label = "correct"
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 100 #number of files used to create user profile (recommended 100)
-number_of_samples = 1 #batch size for under 100 samples bootstrapping
+sample_size = 20 #number of files used to create user profile (recommended 100)
+number_of_samples = 100 #batch size for under 100 samples bootstrapping
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -133,25 +134,37 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
         print(dirs)
 
     for roots, dirs, files in os.walk(directory):
-        if re.match('/.*id_\w+(?!\/)+$', str(roots)):
+        if re.match('/.*id_\w+(?!\/)+(\s*\w)+\s*$', str(roots)):
             for dir in dirs:
                 if dir.startswith('session_'):
                     user_id_path.append(roots)
                     user_session.append(dir)
 
+    for i in range(len(user_id_path)):
+        for file in os.listdir(str(user_id_path[i]) + '/' + str(user_session[i])):
+            if file.endswith('.csv'):
+                filepath = str(user_id_path[i]) + '/' + str(user_session[i]) + '/' + str(file)
+                filedir = str(user_id_path[i]) + '/' + str(user_session[i])
+                filename = file
+                new_stats_df = pd.read_csv(filepath, usecols=stats_csv_columns)
+                new_stats_df['stats_directory'] = [filedir] * len(new_stats_df)
+                new_stats_df['stats_filename'] = [filename] * len(new_stats_df)
+                stats_csv = stats_csv.append(new_stats_df)
+
     #load stats csv
-    for path in user_id_path:
-        for dir in user_session:
-            for file in os.listdir(str(path) + '/' + str(dir)):
-                if file.endswith('.csv'):
-                    filepath = str(path) + '/' + str(dir) + '/' + str(file)
-                    filedir = str(path) + '/' + str(dir)
-                    filename = file
-                    new_stats_df = pd.read_csv(filepath, usecols=stats_csv_columns)
-                    new_stats_df['stats_directory'] = [filedir] * len(new_stats_df)
-                    new_stats_df['stats_filename'] = [filename] * len(new_stats_df)
-                    stats_csv = stats_csv.append(new_stats_df)
-    print(stats_csv["stats_directory"])
+    #for path in user_id_path:
+    #    for dir in user_session:
+    #        for file in os.listdir(str(path) + '/' + str(dir)):
+    #            if file.endswith('.csv'):
+    #                filepath = str(path) + '/' + str(dir) + '/' + str(file)
+    #                filedir = str(path) + '/' + str(dir)
+    #                filename = file
+    #                new_stats_df = pd.read_csv(filepath, usecols=stats_csv_columns)
+    #                new_stats_df['stats_directory'] = [filedir] * len(new_stats_df)
+    #                new_stats_df['stats_filename'] = [filename] * len(new_stats_df)
+    #                stats_csv = stats_csv.append(new_stats_df)
+
+    #print(stats_csv["stats_directory"])
     #load epoch csv's and data in dataframe
     for i in range(len(user_id_path)):
         for category in epoch_categories:
@@ -164,8 +177,12 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
                         session.append(user_session[i])
                         file_path = str(directory2) + '/' + str(file)
                         epoch_path.append(file_path)
-                        user = str(re.findall("(?<=id_)\w+$", str(user_id_path[i])))
-                        sequence = str(re.findall("(?<=%s[_])\d+" %str(user), str(file)))
+                        print(user_id_path[i])
+                        user = str(re.findall(r"(?<=id_)\w+[\s*\w*]*$", str(user_id_path[i])))
+                        print(user)
+                        print(str(file))
+                        sequence = str(re.findall(r"(?<=%s[_])\d+" %str(user), str(file)))
+                        print(sequence)
                         sequence = sequence.lstrip("['").strip("']")
                         sequence = int(sequence)
                         user = user.lstrip("['").strip("']")
@@ -176,12 +193,10 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
                             append_category = "displayed"
                         else:
                             append_category = category
-                        print(append_category)
                         label.append(append_category)
 
                         user_ID.append(user)
                         sequence_no.append(sequence)
-    #print(stats_csv)
     file_index = pd.DataFrame(
         {"user_path": user_path, 'user_ID': user_ID, 'session': session, 'label': label, 'sequence_no': sequence_no, 'file_path': epoch_path,
         'file_name': file_name, 'test': False})
@@ -193,7 +208,6 @@ def index_files(folder_location, for_test): #(batch_size, sample_size, folder_lo
         remainder = file_index.loc[~file_index.index.isin(test_set.index)]
         test_set.loc[:,'test'] = True
         file_index = pd.concat([remainder, test_set])
-
 
 
     return file_index
@@ -234,7 +248,7 @@ def user_profile(file_index, user_name, label, sample, batch_id, test = False, r
     distance_from_click = []
     approach_offsets = []
     files = file_index[(file_index["user_ID"] == user_name) & (file_index["label"] == label) & (file_index["test"] == test)]["file_path"].tolist()
-    #print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
+    print(str(len(files)) + ' total' +' "'+ str(label) + '" ' + 'files for ' + str(user_name))
 
     if sample > len(files):
         sample = len(files)
@@ -283,7 +297,7 @@ def user_profile(file_index, user_name, label, sample, batch_id, test = False, r
         final_click_pos = [*final_click_pos, *click_pos_list]
 
         #fix last to first rollover error
-        for i in range(curve):
+        for i in range(curve) if curve < len(xy_pos) else range(len(xy_pos)):
             vel_x[i] = np.subtract(xy_pos['x_pos'], np.roll(xy_pos['x_pos'], i))[i]/i
             vel_y[i] = np.subtract(xy_pos['y_pos'], np.roll(xy_pos['y_pos'], i))[i]/i
         vel_x[0] = 0
@@ -756,11 +770,11 @@ def save_epoch_dataframe(filepath, dataframe):
 maximum_velocity_total = 100
 directory = get_path()
 folders = index_files(directory, no_in_test_set)
-print(folders["label"])
-
+print(folders["user_ID"])
+print(folders)
 #test set
 _, test_epoch_stats, test_timeframe_stats = user_profile(folders, user, test_set_label, 3, 1, test=True)
-print(test_epoch_stats)
+#print(test_epoch_stats)
 
 
 #append empties for batch sampling
@@ -910,7 +924,15 @@ variable2_velocities[i] = variable2_timeframe_stats[['velocity', str(direction_c
 
 draw_profile(mean_variable2_velocities, mean_variable1_velocities, big_heat_map_variable1, big_heat_map_variable2)
 
-export_dataframe = pd.concat([variable1_epoch_stats,variable2_epoch_stats])
+
+if export_csv:    #export dataframe with 'sample_size' from every category
+    export_dataframe = pd.DataFrame()
+    all_labels = np.unique(folders["label"])
+    for i in range(len(all_labels)):
+        _, new_epoch_stats, new_timeframe_stats = user_profile(folders, user, all_labels[i], sample_size, i)
+        export_dataframe = export_dataframe.append(new_epoch_stats)
+
+
 save_csv_path = os.path.join(directory, new_file_name)
 save_epoch_dataframe(save_csv_path, export_dataframe)
 
