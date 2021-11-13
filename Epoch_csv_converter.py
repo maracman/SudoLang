@@ -33,15 +33,15 @@ pause_outlier_thresh = 4 #duration beyond which to not count as a pause
 res_y = 600
 accel_channels = 2
 length_include = 1 #only inlclude files this many seconds or longer
-user = 'Eddie V2'
+user = ''
 HSV = False
 is_test = False #overlay test epochs on histograms
 test_set_label = "correct"
 click_batch = 1
 decision_point_calculator = acc_curve #sets how tightly to measure when the cursor starts moving toward the response object
 profiling_label = user
-sample_size = 20 #number of files used to create user profile (recommended 100)
-number_of_samples = 100 #batch size for under 100 samples bootstrapping
+sample_size = 100 #number of files used to create user profile (recommended 100)
+number_of_samples = 1 #batch size for under 100 samples bootstrapping
 direction_segments = 8 #must be greater than 2
 
 def get_path():
@@ -932,9 +932,8 @@ if export_csv:    #export dataframe with 'sample_size' from every category
         _, new_epoch_stats, new_timeframe_stats = user_profile(folders, user, all_labels[i], sample_size, i)
         export_dataframe = export_dataframe.append(new_epoch_stats)
 
-
-save_csv_path = os.path.join(directory, new_file_name)
-save_epoch_dataframe(save_csv_path, export_dataframe)
+    save_csv_path = os.path.join(directory, new_file_name)
+    save_epoch_dataframe(save_csv_path, export_dataframe)
 
 joint_timeframe_stats = pd.concat([variable1_timeframe_stats, variable2_timeframe_stats])
 maxvel = joint_timeframe_stats["velocity"].max()
