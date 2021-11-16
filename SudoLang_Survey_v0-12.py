@@ -340,10 +340,8 @@ class App(QMainWindow):
         self.rareness_ordering = QCheckBox("  objects rareness \n according to label complexity", self)
         self.rareness_ordering.toggle()
         self.rareness_ordering.setChecked(rareness)
-        self.rareness_ordering.setToolTip('objects that have have been attributed more complex names \n'
-                                            'will appear and be chosen as the target less often. \n'
-                                            'The player will also be more likely to encounter objects \n '
-                                                'with simpler labels at the start of the game.')
+        self.rareness_ordering.setToolTip('Checking this box makes object-label pairs appear as the target stimulus \n'
+                                            'according to probabilities based on the label category.')
 
         self.prior_word_set_box = QCheckBox("  load objects and labels \n  from (user ID's) previous session", self)
         self.prior_word_set_box.toggle()
@@ -352,15 +350,18 @@ class App(QMainWindow):
                                            "from the player's previous game. \n"
                                             'Settings for word weights will be ignored ')
 
-        self.fixed_labels_box = QCheckBox("  use fixed object labels ", self)
+        self.fixed_labels_box = QCheckBox(" Fixed labels ", self)
         self.fixed_labels_box.toggle()
         self.fixed_labels_box.setChecked(isFixed)
-        self.fixed_labels_box.setToolTip(" ")
+        self.fixed_labels_box.setToolTip("Create object labels according to the object image name")
 
+        word_slider_tip = "set the relative proportion of words from \n"\
+                          "this category to be used in user's object-label set"
         self.wrd1_slider = QSlider(Qt.Horizontal, self)
         self.wrd1_slider.setValue(word_slider_values[0])
         self.wrd1_slider.setMinimum(0)
         self.wrd1_slider.setMaximum(100)
+        self.wrd1_slider.setToolTip(word_slider_tip)
 
         self.wrd1_v_label = QLineEdit('0', self)
         self.wrd1_v_label.setMinimumWidth(30)
@@ -383,6 +384,7 @@ class App(QMainWindow):
         self.wrd2_slider.setValue(word_slider_values[1])
         self.wrd2_slider.setMinimum(0)
         self.wrd2_slider.setMaximum(100)
+        self.wrd2_slider.setToolTip(word_slider_tip)
 
         self.wrd2_v_label = QLineEdit('0', self)
         self.wrd2_v_label.setMinimumWidth(30)
@@ -405,6 +407,7 @@ class App(QMainWindow):
         self.wrd3_slider.setValue(word_slider_values[2])
         self.wrd3_slider.setMinimum(0)
         self.wrd3_slider.setMaximum(100)
+        self.wrd3_slider.setToolTip(word_slider_tip)
 
         self.wrd3_v_label = QLineEdit('0', self)
         self.wrd3_v_label.setMinimumWidth(30)
@@ -426,6 +429,7 @@ class App(QMainWindow):
         self.wrd4_slider.setValue(word_slider_values[3])
         self.wrd4_slider.setMinimum(0)
         self.wrd4_slider.setMaximum(100)
+        self.wrd4_slider.setToolTip(word_slider_tip)
 
         self.wrd4_v_label = QLineEdit('0', self)
         self.wrd4_v_label.setMinimumWidth(30)
@@ -448,6 +452,7 @@ class App(QMainWindow):
         self.wrd5_slider.setValue(word_slider_values[4])
         self.wrd5_slider.setMinimum(0)
         self.wrd5_slider.setMaximum(100)
+        self.wrd5_slider.setToolTip(word_slider_tip)
 
         self.wrd5_v_label = QLineEdit('0', self)
         self.wrd5_v_label.setMinimumWidth(30)
@@ -470,6 +475,7 @@ class App(QMainWindow):
         self.wrd6_slider.setValue(word_slider_values[5])
         self.wrd6_slider.setMinimum(0)
         self.wrd6_slider.setMaximum(100)
+        self.wrd6_slider.setToolTip(word_slider_tip)
 
         self.wrd6_v_label = QLineEdit('0', self)
         self.wrd6_v_label.setMinimumWidth(30)
@@ -488,10 +494,13 @@ class App(QMainWindow):
         wrd6_label.setAlignment(Qt.AlignCenter)
         wrd6_label.adjustSize()
 
+        object_slider_tip = "set the relative proportion of objects from \n"\
+                          "this category to be used in user's object-label set"
         self.obj1_slider = QSlider(Qt.Horizontal, self)
         self.obj1_slider.setValue(object_slider_values[0])
         self.obj1_slider.setMinimum(0)
         self.obj1_slider.setMaximum(100)
+        self.obj1_slider.setToolTip(object_slider_tip)
 
         self.obj1_v_label = QLineEdit('0', self)
         self.obj1_v_label.setMinimumWidth(30)
@@ -515,6 +524,7 @@ class App(QMainWindow):
         self.obj2_slider.setValue(object_slider_values[1])
         self.obj2_slider.setMinimum(0)
         self.obj2_slider.setMaximum(100)
+        self.obj2_slider.setToolTip(object_slider_tip)
 
         self.obj2_v_label = QLineEdit('0', self)
         self.obj2_v_label.setMinimumWidth(30)
@@ -538,6 +548,7 @@ class App(QMainWindow):
         self.obj3_slider.setValue(object_slider_values[2])
         self.obj3_slider.setMinimum(0)
         self.obj3_slider.setMaximum(100)
+        self.obj3_slider.setToolTip(object_slider_tip)
 
         self.obj3_v_label = QLineEdit('0', self)
         self.obj3_v_label.setMinimumWidth(30)
@@ -580,6 +591,8 @@ class App(QMainWindow):
         self.start_vocab_slider.setValue(starting_vocabulary)
         self.start_vocab_slider.setMinimum(2)
         self.start_vocab_slider.setMaximum(10)
+        self.start_vocab_slider.setToolTip("sets the number of possible object-label pairs \n"
+                                           "that the user begins with")
 
         start_vocab_v_label = QLabel('0', self)
         start_vocab_v_label.setMinimumWidth(80)
@@ -714,9 +727,12 @@ class App(QMainWindow):
         top_layout = QFormLayout()
         energy_slider_values = [0, impact_max, impact_min, energy_mean]
 
-        self.successive_diff = QCheckBox("always use different successive targets", self)
+        self.successive_diff = QCheckBox("different successive target stimuli", self)
         self.successive_diff.toggle()
         self.successive_diff.setChecked(diff_successive)
+        self.successive_diff.setToolTip('prevent the same target object from \n'
+                                        'being presented successively')
+
 
         self.LivesBox = QLineEdit(self)
         self.onlyInt = QIntValidator()
@@ -741,6 +757,7 @@ class App(QMainWindow):
         self.starting_energy_slider.setValue(energy)
         self.starting_energy_slider.setMinimum(0)
         self.starting_energy_slider.setMaximum(99)
+        self.starting_energy_slider.setToolTip("set the user's starting energy level")
 
         self.starting_energy_value_label = QLineEdit('0', self)
         self.starting_energy_value_label.setMinimumWidth(80)
@@ -762,6 +779,9 @@ class App(QMainWindow):
         self.stick_point_slider.setValue(energy_slider_values[3])
         self.stick_point_slider.setMinimum(1)
         self.stick_point_slider.setMaximum(99)
+        self.stick_point_slider.setToolTip("The point above which it becomes increasingly \n"
+                                         "difficult to increase energy supply and below which \n"
+                                         "negative impacts to energy are increasingly negligible")
 
         self.stick_point_value_label = QLineEdit('0', self)
         self.stick_point_value_label.setMinimumWidth(80)
@@ -787,6 +807,10 @@ class App(QMainWindow):
         self.min_impact_slider.setMinimum(1)
         self.min_impact_slider.setMaximum(15)
         self.min_impact_slider.setValue(energy_slider_values[2])
+        self.min_impact_slider.setToolTip('Negative impact to energy will decrease to this value \n'
+                                     'when player energy drops below below the "stick-point", whilst positive  \n'
+                                     'impact to energy will decrease to this value when  \n'
+                                     'player energy exceeds the "stick-point".')
 
         self.min_impact_value_label = QLineEdit('0', self)
         self.min_impact_value_label.setMinimumWidth(80)
@@ -808,6 +832,10 @@ class App(QMainWindow):
         self.max_impact_slider.setMinimum(5)
         self.max_impact_slider.setMaximum(20)
         self.max_impact_slider.setValue(energy_slider_values[1])
+        self.max_impact_slider.setToolTip('Negative impact to energy will increase to this value \n'
+                                          'when player energy exceeds the "stick-point", whilst positive  \n'
+                                          'impact to energy will increase to this value when  \n'
+                                          'player energy drops below the "stick-point".')
 
         self.max_impact_value_label = QLineEdit('0', self)
         self.max_impact_value_label.setMinimumWidth(80)
@@ -845,9 +873,9 @@ class App(QMainWindow):
         tally_theshold_label = QLabel('threshold for target image', self)
         tally_theshold_label.setAlignment(Qt.AlignCenter)
         tally_theshold_label.adjustSize()
-        tally_theshold_label.setToolTip('when the tally for individual creature types exceed \n '
-                                              'this value the target image will not accompany \n'
-                                        'the target label for that creature.')
+        self.tally_theshold_slider.setToolTip('set the number of correct responses associated with an object, \n '
+                                        'after which the target image for that object will no longer \n'
+                                        'be displayed as part of the stimulus.')
         # style sheets
 
 
@@ -916,6 +944,9 @@ class App(QMainWindow):
         self.feedback_check.toggle()
         self.feedback_check.setChecked(isFeedback)
         #self.feedback_check.setLayoutDirection()
+        self.feedback_check.setToolTip("turn on feedback sound effects (correct or incorrect) \n"
+                                       "that play after the user clicks a response object.")
+
 
         self.energy_overlay_check = QCheckBox(" low-health vignette overlay  ", self)
         self.energy_overlay_check.toggle()
@@ -925,6 +956,8 @@ class App(QMainWindow):
         self.label_audio_check = QCheckBox(" play audio for stimulus ", self)
         self.label_audio_check.toggle()
         self.label_audio_check.setChecked(isLabel_audio)
+        self.label_audio_check.setToolTip("turn on the audio that reads the label \n"
+                                          "of each newly displayed target object.")
 
         self.energy_animate_check = QCheckBox(" animate energy bar ", self)
         self.energy_animate_check.toggle()
@@ -934,6 +967,9 @@ class App(QMainWindow):
         self.increase_scroll_check = QCheckBox(" gradually increase scroll speed ", self)
         self.increase_scroll_check.toggle()
         self.increase_scroll_check.setChecked(increase_scroll)
+        self.increase_scroll_check.setToolTip("incrementally speed up the scrolling each time \n" 
+                                              "the player crosses the threshold for correct \n"
+                                              "responses relating to an object.")
 
 
         # Feedback delay widgets
@@ -948,6 +984,8 @@ class App(QMainWindow):
         self.feedback_delay_slider.setMaximum(100)
         self.feedback_delay_slider.setValue(feedback_delay_value)
         self.feedback_delay_slider.setEnabled(False)
+        self.feedback_delay_slider.setToolTip("adjust the length of the delay between the response \n"
+                                       "click and the feedback sound effect for that click.")
 
 
         self.feedback_delay_v_label = QLineEdit('0', self)
@@ -970,12 +1008,13 @@ class App(QMainWindow):
         feedback_random_label = QLabel('feedback audio randomisation', self)
         feedback_random_label.setAlignment(Qt.AlignCenter)
         feedback_random_label.adjustSize()
-        feedback_random_label.setToolTip("")
 
         self.feedback_random_slider = QSlider(Qt.Horizontal, self)
         self.feedback_random_slider.setMinimum(0)
         self.feedback_random_slider.setMaximum(100)
         self.feedback_random_slider.setValue(feedback_random_value)
+        self.feedback_random_slider.setToolTip("set how often the feedback sound effects (correct/incorrect) \n"
+                                               "will be swapped around.")
 
         self.feedback_random_v_label = QLineEdit('0', self)
         self.feedback_random_v_label.setMaximumWidth(30)
@@ -992,12 +1031,12 @@ class App(QMainWindow):
         scroll_speed_label = QLabel('scroll speed', self)
         scroll_speed_label.setAlignment(Qt.AlignCenter)
         scroll_speed_label.adjustSize()
-        scroll_speed_label.setToolTip("")
 
         self.scroll_speed_slider = QSlider(Qt.Horizontal, self)
         self.scroll_speed_slider.setMinimum(0)
         self.scroll_speed_slider.setMaximum(10)
         self.scroll_speed_slider.setValue(scroll_speed_value)
+        self.scroll_speed_slider.setToolTip("set the speed of the vertical scrolling in the game.")
 
         self.scroll_speed_v_label = QLineEdit('0', self)
         self.scroll_speed_v_label.setMaximumWidth(30)
@@ -1014,12 +1053,14 @@ class App(QMainWindow):
         max_fps_label = QLabel('frames per second', self)
         max_fps_label.setAlignment(Qt.AlignCenter)
         max_fps_label.adjustSize()
-        max_fps_label.setToolTip("")
 
         self.max_fps_slider = QSlider(Qt.Horizontal, self)
         self.max_fps_slider.setMinimum(15)
         self.max_fps_slider.setMaximum(100)
         self.max_fps_slider.setValue(fps)
+        self.max_fps_slider.setToolTip("set the animation frame rate (FPS). A higher \n"
+                                       "FPS makes the game run more smoothly but \n"
+                                       "requires more computer resources")
 
         self.max_fps_v_label = QLineEdit('0', self)
         self.max_fps_v_label.setMaximumWidth(30)
@@ -1085,11 +1126,15 @@ class App(QMainWindow):
 
 
         self.checkbox_list.setMaximumHeight(400)
+        self.checkbox_list.setToolTip("selection of any of the following indicates its  \n"
+                                      "inclusion as a variable in the exported .csv file")
 
 
         self.mouse_export = QCheckBox("   Export mouse tracking", self)
         self.mouse_export.toggle()
         self.mouse_export.setChecked(isMousetrack)
+        self.mouse_export.setToolTip("exports files to '/mouse_tracking' containing \n"
+                                     "mouse coordinate information for each response")
 
         outer_layout.addWidget(self.checkbox_list)
 
@@ -1525,10 +1570,10 @@ def write_line_to_csv_array(from_dataframe, df_column_name, to_csv_array, full_c
     full_csv_array.append(new_line_full)
     return to_csv_array, full_csv_array
 
-
-if load_previous:
+saved_state = os.path.join(data_path, "saved_game_states/", str(id_name) + '_' + 'object_label_data.csv')
+if load_previous and os.path.exists(saved_state):
     try:
-        prev_data = pd.read_csv(os.path.join(data_path, "saved_game_states/", str(id_name) + '_' + 'object_label_data.csv'))
+        prev_data = pd.read_csv(saved_state)
         animalDict_range = len(list(prev_data))
         for i in range(animalDict_range):
             objectDict["filepath"].append(prev_data["filepath"][i])
@@ -1540,7 +1585,6 @@ if load_previous:
             objectDict['is_monster'].append(prev_data['is_monster'][i])
             objectDict['label'].append(prev_data['label'][i])
             objectDict["label_complexity"].append(prev_data['label_complexity'][i])
-
     except OSError():
         print("Cannot find previous settings, running using defaults")
 
