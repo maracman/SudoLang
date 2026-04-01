@@ -13,6 +13,10 @@ SudoLang presents participants with a pygame-based game where falling objects mu
 - **Flexible output**: 24+ configurable output variables exported per click event
 - **Dual mode**: Researcher mode (full settings UI) and Survey mode (locked settings for participants)
 
+## Demo
+
+Watch the walkthrough video: [SudoLang Walkthrough](https://www.youtube.com/watch?v=FuVmbW_kIWA)
+
 ## Requirements
 
 - Python 3.7+
