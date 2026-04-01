@@ -1,3 +1,4 @@
+import argparse
 import pygame
 from pygame import mixer
 
@@ -56,8 +57,12 @@ previous_data_sets_path = os.path.join(data_path, 'saved_game_states/')
 # load input CSV
 inputData = pd.read_csv(os.path.join(data_path, 'game_input_data.csv'))
 
-#change to True for Survey program
-isSurvey = True
+# Parse command line arguments to determine mode
+parser = argparse.ArgumentParser(description='SudoLang - Language Acquisition Research Tool')
+parser.add_argument('--survey', action='store_true',
+                    help='Run in survey/participant mode (skips settings window, loads exported settings)')
+_args = parser.parse_args()
+isSurvey = _args.survey
 
 isEnergy_overlay = False
 isAnimate_energy = False
@@ -125,68 +130,35 @@ lives = -1
 isFixed = False
 
 
-def pickle_load_and_save_settings(file_path):
-    with open(file_path, 'rb') as f:
-        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
-
-    with open(settings_default_path, 'wb') as f:
-        pickle.dump([word_slider_values,
-                     object_slider_values,
-                     energy_mean,
-                     impact_max,
-                     impact_min,
-                     output_checkboxes,
-                     id_name,
-                     lives,
-                     starting_vocabulary,
-                     bg_matchingness,
-                     energy,
-                     thresh,
-                     isEnergy_linear,
-                     load_previous,
-                     isMousetrack,
-                     rareness,
-                     fps,
-                     increase_scroll,
-                     isFixed,
-                     scroll_speed_value,
-                     diff_successive,
-                     isLabel_audio,
-                     feedback_random_value,
-                     isFeedback
-                     ], f)
+# Names of all settings, in the order they are stored in pickle files.
+# This single list replaces the 24-item sequence that was previously
+# duplicated across every pickle.load/pickle.dump call site.
+SETTINGS_KEYS = [
+    'word_slider_values', 'object_slider_values', 'energy_mean', 'impact_max',
+    'impact_min', 'output_checkboxes', 'id_name', 'lives', 'starting_vocabulary',
+    'bg_matchingness', 'energy', 'thresh', 'isEnergy_linear', 'load_previous',
+    'isMousetrack', 'rareness', 'fps', 'increase_scroll', 'isFixed',
+    'scroll_speed_value', 'diff_successive', 'isLabel_audio',
+    'feedback_random_value', 'isFeedback',
+]
 
 
 def pickle_save_settings(file_path):
+    values = [globals()[k] for k in SETTINGS_KEYS]
     with open(file_path, 'wb') as f:
-        pickle.dump([word_slider_values,
-                     object_slider_values,
-                     energy_mean,
-                     impact_max,
-                     impact_min,
-                     output_checkboxes,
-                     id_name,
-                     lives,
-                     starting_vocabulary,
-                     bg_matchingness,
-                     energy,
-                     thresh,
-                     isEnergy_linear,
-                     load_previous,
-                     isMousetrack,
-                     rareness,
-                     fps,
-                     increase_scroll,
-                     isFixed,
-                     scroll_speed_value,
-                     diff_successive,
-                     isLabel_audio,
-                     feedback_random_value,
-                     isFeedback
-                     ], f)
+        pickle.dump(values, f)
+
+
+def pickle_load_settings(file_path):
+    with open(file_path, 'rb') as f:
+        values = pickle.load(f)
+    for key, val in zip(SETTINGS_KEYS, values):
+        globals()[key] = val
+
+
+def pickle_load_and_save_settings(file_path):
+    pickle_load_settings(file_path)
+    pickle_save_settings(settings_default_path)
 
 
 if not os.path.isfile(settings_default_path):
@@ -194,12 +166,7 @@ if not os.path.isfile(settings_default_path):
     pickle_save_settings(settings_default_path)
 else:
     try:
-        with open(settings_default_path, 'rb') as f:
-            word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-            output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-            thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-            diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
-
+        pickle_load_settings(settings_default_path)
     except IOError:
         print("could not load latest settings")
         pickle_save_settings(settings_default_path)
@@ -1201,32 +1168,7 @@ class App(QMainWindow):
         isFeedback = self.feedback_check.isChecked()
 
         # Export settings to pkl for main program
-        with open(save_file_path, 'wb') as f:
-            pickle.dump([word_slider_values,
-                         object_slider_values,
-                         energy_mean,
-                         impact_max,
-                         impact_min,
-                         output_checkboxes,
-                         id_name,
-                         lives,
-                         starting_vocabulary,
-                         bg_matchingness,
-                         energy,
-                         thresh,
-                         isEnergy_linear,
-                         load_previous,
-                         isMousetrack,
-                         rareness,
-                         fps,
-                         increase_scroll,
-                         isFixed,
-                         scroll_speed_value,
-                         diff_successive,
-                         isLabel_audio,
-                         feedback_random_value,
-                         isFeedback
-                         ], f)
+        pickle_save_settings(save_file_path)
         if isExit:
             global exit_application_glob
             exit_application_glob = False
@@ -1366,24 +1308,14 @@ if not isSurvey:
 
 
         try:
-            with open(settings_default_path, 'rb') as f:
-                word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-                output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-                thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-                diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
-
+            pickle_load_settings(settings_default_path)
             print("saved settings found")
         except IOError:
             print("could not load new settings")
 
 # load current settings after settings window is exited
 try:
-    with open(settings_default_path, 'rb') as f:
-        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
-
+    pickle_load_settings(settings_default_path)
 except IOError:
     print("could not load new settings")
 
@@ -1394,11 +1326,7 @@ if export_settings_glob:
 
 #loads settings in survey application
 if isSurvey:
-    with open(survey_settings_path, 'rb') as f:
-        word_slider_values, object_slider_values, energy_mean, impact_max, impact_min, \
-        output_checkboxes, id_name, lives, starting_vocabulary, bg_matchingness, energy, \
-        thresh, isEnergy_linear, load_previous, isMousetrack, rareness, fps, increase_scroll, isFixed, scroll_speed_value, \
-        diff_successive, isLabel_audio, feedback_random_value, isFeedback = pickle.load(f)
+    pickle_load_settings(survey_settings_path)
 
     if __name__ == '__main__':
         app = QApplication(sys.argv)
